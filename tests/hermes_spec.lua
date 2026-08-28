@@ -1,0 +1,15 @@
+local hermes = require("hermes")
+
+describe("hermes.nvim", function()
+  it("can be set up with default options", function()
+    hermes.setup()
+    local config = require("hermes.config")
+    assert.is_true(config.options.enabled)
+  end)
+
+  it("merges user options with defaults", function()
+    hermes.setup({ enabled = false })
+    local config = require("hermes.config")
+    assert.is_false(config.options.enabled)
+  end)
+end)

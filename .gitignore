@@ -1,0 +1,4 @@
+.luarc.json
+*.swp
+tags
+plenary.nvim/

@@ -1,0 +1,28 @@
+*hermes.txt*   A Neovim plugin
+
+==============================================================================
+CONTENTS                                                     *hermes-contents*
+
+    1. Introduction ........... |hermes-introduction|
+    2. Setup .................. |hermes-setup|
+    3. Commands ............... |hermes-commands|
+
+==============================================================================
+1. Introduction                                          *hermes-introduction*
+
+hermes.nvim is a Neovim plugin.
+
+==============================================================================
+2. Setup                                                        *hermes-setup*
+
+Call the setup function in your config: >lua
+    require("hermes").setup({
+      enabled = true,
+    })
+<
+==============================================================================
+3. Commands                                                  *hermes-commands*
+
+:Hermes                     Run the example command.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
