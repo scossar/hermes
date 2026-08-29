@@ -182,4 +182,27 @@ describe("hermes session lifecycle", function()
 
     assert.equals("stored-id", require("hermes.state").load(config.options.state_file))
   end)
+
+  it("forces bridge shutdown when session.close does not answer", function()
+    local stopped = false
+    process.start = function()
+      return true
+    end
+    process.stop = function()
+      stopped = true
+    end
+    rpc.request = function(method, _, on_result)
+      if method == "session.create" then
+        on_result({ session_id = "live-id", stored_session_id = "stored-id" })
+      end
+    end
+
+    session.ensure_session(function() end)
+    session.shutdown()
+    vim.wait(1500, function()
+      return stopped
+    end)
+
+    assert.is_true(stopped)
+  end)
 end)

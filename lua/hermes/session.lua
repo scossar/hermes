@@ -17,6 +17,15 @@ local process_generation = 0
 local activation_details = nil
 local details_delivered = false
 local start_session
+local close_timer = nil
+
+local function cancel_close_timer()
+  if close_timer then
+    close_timer:stop()
+    close_timer:close()
+    close_timer = nil
+  end
+end
 
 local function reset()
   session_id = nil
@@ -136,6 +145,7 @@ start_session = function()
       return
     end
     local was_active = state == "active"
+    cancel_close_timer()
     state = "exited"
     rpc.fail_pending({ code = -32000, message = "bridge process exited" })
     reset()
@@ -212,16 +222,31 @@ function M.shutdown(cb)
 
   state = "closing"
   local closing_id = session_id
+  cancel_close_timer()
+  close_timer = vim.uv.new_timer()
+  close_timer:start(
+    1000,
+    0,
+    vim.schedule_wrap(function()
+      close_timer = nil
+      if state == "closing" then
+        state = "stopping"
+        process.stop()
+      end
+    end)
+  )
   rpc.request("session.close", { session_id = closing_id }, function()
     if state ~= "closing" then
       return
     end
+    cancel_close_timer()
     state = "stopping"
     process.stop()
   end, function(err)
     if state ~= "closing" then
       return
     end
+    cancel_close_timer()
     vim.notify("hermes: session.close failed: " .. (err.message or "unknown error"), vim.log.levels.WARN)
     state = "stopping"
     process.stop()
