@@ -120,6 +120,41 @@ describe("hermes basic chat", function()
     }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
   end)
 
+  it("replaces streamed text with the authoritative completed response", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    rpc.request = function() end
+
+    chat.ask("Hello")
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.delta",
+        session_id = "runtime-session",
+        payload = { text = "Draft answer" },
+      },
+    })
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.complete",
+        session_id = "runtime-session",
+        payload = { text = "Final corrected answer", status = "complete" },
+      },
+    })
+
+    assert.same({
+      "## You",
+      "",
+      "Hello",
+      "",
+      "## Hermes",
+      "",
+      "Final corrected answer",
+    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+  end)
+
   it("rejects a second prompt while session creation is pending", function()
     session.ensure_session = function() end
 

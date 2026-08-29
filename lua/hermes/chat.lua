@@ -27,8 +27,8 @@ function M.setup()
       return
     end
     local payload = params.payload or {}
-    if not saw_delta then
-      buffer.append(payload.text or "")
+    if payload.text and payload.text ~= "" then
+      buffer.replace_assistant(payload.text)
     end
     buffer.finish_assistant()
     running = false

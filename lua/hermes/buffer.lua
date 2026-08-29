@@ -1,6 +1,7 @@
 local M = {}
 
 local bufnr = nil
+local assistant_start = nil
 
 local function set_lines(lines)
   local buf = M.ensure_buffer()
@@ -53,6 +54,15 @@ end
 function M.begin_assistant()
   local buf = M.ensure_buffer()
   vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "", "## Hermes", "", "" })
+  assistant_start = vim.api.nvim_buf_line_count(buf) - 1
+end
+
+function M.replace_assistant(text)
+  local buf = M.ensure_buffer()
+  if assistant_start == nil then
+    return
+  end
+  vim.api.nvim_buf_set_lines(buf, assistant_start, -1, false, vim.split(text, "\n", { plain = true }))
 end
 
 function M.finish_assistant()
@@ -62,6 +72,7 @@ function M.finish_assistant()
     table.remove(lines)
   end
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  assistant_start = nil
 end
 
 function M.reset()
@@ -69,6 +80,7 @@ function M.reset()
     vim.api.nvim_buf_delete(bufnr, { force = true })
   end
   bufnr = nil
+  assistant_start = nil
 end
 
 return M

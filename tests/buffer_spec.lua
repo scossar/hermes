@@ -47,4 +47,18 @@ describe("hermes chat buffer", function()
       "Second question",
     }, vim.api.nvim_buf_get_lines(bufnr, 0, -1, false))
   end)
+
+  it("replaces the current assistant response", function()
+    local bufnr = buffer.ensure_buffer()
+    buffer.append_user("Question")
+    buffer.begin_assistant()
+    buffer.append("Draft")
+
+    buffer.replace_assistant("Final")
+
+    assert.same(
+      { "## You", "", "Question", "", "## Hermes", "", "Final" },
+      vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    )
+  end)
 end)
