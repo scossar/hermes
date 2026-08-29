@@ -67,6 +67,26 @@ describe("hermes session lifecycle", function()
     assert.is_false(session.is_active())
   end)
 
+  it("notifies listeners when an active bridge disconnects", function()
+    local on_exit
+    process.start = function(_, _, exit_cb)
+      on_exit = exit_cb
+      return true
+    end
+    rpc.request = function(_, _, on_result)
+      on_result({ session_id = "live-id", stored_session_id = "stored-id" })
+    end
+
+    local disconnected = false
+    session.on_disconnect(function()
+      disconnected = true
+    end)
+    session.ensure_session(function() end)
+    on_exit(1)
+
+    assert.is_true(disconnected)
+  end)
+
   it("reports session creation failure to every waiting caller", function()
     local create_error
     process.start = function()

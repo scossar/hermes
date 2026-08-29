@@ -8,6 +8,7 @@ local session_id = nil
 local stored_session_id = nil
 local state = "stopped"
 local waiters = {}
+local disconnect_handler = nil
 
 local function reset()
   session_id = nil
@@ -45,6 +46,10 @@ function M.current_stored_session_id()
   return stored_session_id
 end
 
+function M.on_disconnect(handler)
+  disconnect_handler = handler
+end
+
 function M.ensure_session(cb)
   if M.is_active() then
     cb(session_id)
@@ -61,6 +66,9 @@ function M.ensure_session(cb)
     local was_active = state == "active"
     reset()
     rpc.fail_pending({ code = -32000, message = "bridge process exited" })
+    if was_active and disconnect_handler then
+      disconnect_handler()
+    end
     if code ~= 0 or was_active then
       vim.notify("hermes: bridge disconnected", vim.log.levels.ERROR)
     end

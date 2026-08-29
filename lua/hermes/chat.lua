@@ -34,6 +34,15 @@ function M.setup()
     running = false
     active_session_id = nil
   end)
+
+  session.on_disconnect(function()
+    if not running then
+      return
+    end
+    buffer.append("_Connection lost before the response completed._")
+    buffer.finish_assistant()
+    M.reset()
+  end)
 end
 
 function M.ask(text)

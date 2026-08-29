@@ -6,6 +6,7 @@ local session = require("hermes.session")
 describe("hermes basic chat", function()
   local original_ensure_session
   local original_request
+  local original_on_disconnect
   local notifications
   local original_notify
 
@@ -15,6 +16,7 @@ describe("hermes basic chat", function()
     chat.setup()
     original_ensure_session = session.ensure_session
     original_request = rpc.request
+    original_on_disconnect = session.on_disconnect
     original_notify = vim.notify
     notifications = {}
     vim.notify = function(message)
@@ -25,6 +27,7 @@ describe("hermes basic chat", function()
   after_each(function()
     session.ensure_session = original_ensure_session
     rpc.request = original_request
+    session.on_disconnect = original_on_disconnect
     vim.notify = original_notify
     chat.reset()
     buffer.reset()
@@ -128,6 +131,27 @@ describe("hermes basic chat", function()
     assert.same(
       { "## You", "", "First", "", "## Hermes", "", "" },
       vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false)
+    )
+  end)
+
+  it("recovers when the bridge disconnects during a response", function()
+    local disconnect
+    session.on_disconnect = function(cb)
+      disconnect = cb
+    end
+    chat.setup()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    rpc.request = function() end
+
+    chat.ask("Hello")
+    disconnect()
+
+    assert.is_false(chat.is_running())
+    assert.matches(
+      "Connection lost",
+      table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
     )
   end)
 
