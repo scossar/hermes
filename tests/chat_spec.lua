@@ -239,6 +239,27 @@ describe("hermes basic chat", function()
     assert.matches("Stopped", table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n"))
   end)
 
+  it("interrupts an active turn without closing the session", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    local requests = {}
+    rpc.request = function(method, params, on_result)
+      table.insert(requests, { method = method, params = params })
+      if method == "session.interrupt" then
+        on_result({ status = "interrupted" })
+      end
+    end
+
+    chat.ask("Long task")
+    chat.interrupt()
+
+    assert.equals("session.interrupt", requests[2].method)
+    assert.equals("runtime-session", requests[2].params.session_id)
+    assert.is_false(chat.is_running())
+    assert.matches("Interrupted", table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n"))
+  end)
+
   it("recovers when session creation fails", function()
     session.ensure_session = function(cb)
       cb(nil, { message = "connection failed" })
@@ -251,5 +272,30 @@ describe("hermes basic chat", function()
       "connection failed",
       table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
     )
+  end)
+
+  it("hydrates the scratch buffer when opening a resumed session", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session", nil, {
+        messages = {
+          { role = "user", text = "Earlier question" },
+          { role = "assistant", text = "Earlier answer" },
+        },
+      })
+    end
+
+    chat.open()
+
+    assert.same({
+      "## You",
+      "",
+      "Earlier question",
+      "",
+      "## Hermes",
+      "",
+      "Earlier answer",
+      "",
+      "---",
+    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
   end)
 end)

@@ -18,6 +18,14 @@ vim.api.nvim_create_user_command("HermesStop", function()
   require("hermes").stop()
 end, { desc = "Close the current Hermes connection" })
 
+vim.api.nvim_create_user_command("HermesInterrupt", function()
+  require("hermes").interrupt()
+end, { desc = "Interrupt the active Hermes turn" })
+
+vim.api.nvim_create_user_command("HermesNew", function()
+  require("hermes").new_session()
+end, { desc = "Start a new durable Hermes conversation" })
+
 vim.api.nvim_create_user_command("HermesSendSelection", function()
   require("hermes").ask_selection()
 end, {

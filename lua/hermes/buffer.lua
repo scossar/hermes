@@ -2,6 +2,7 @@ local M = {}
 
 local bufnr = nil
 local assistant_start = nil
+local event_regions = {}
 
 local function set_lines(lines)
   local buf = M.ensure_buffer()
@@ -41,6 +42,60 @@ function M.append(text)
   local lines = vim.split(text, "\n", { plain = true })
 
   vim.api.nvim_buf_set_text(buf, last_line, last_col, last_line, last_col, lines)
+end
+
+function M.append_block(lines)
+  local buf = M.ensure_buffer()
+  local existing = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  if #existing == 1 and existing[1] == "" then
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  else
+    vim.api.nvim_buf_set_lines(buf, -1, -1, false, lines)
+  end
+end
+
+function M.clear()
+  local buf = M.ensure_buffer()
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
+  assistant_start = nil
+  event_regions = {}
+end
+
+function M.set_event(key, lines)
+  local buf = M.ensure_buffer()
+  local region = event_regions[key]
+  if region then
+    local old_finish = region.finish
+    local old_count = old_finish - region.start
+    vim.api.nvim_buf_set_lines(buf, region.start, old_finish, false, lines)
+    local delta = #lines - old_count
+    region.finish = region.start + #lines
+    if assistant_start and region.start < assistant_start then
+      assistant_start = assistant_start + delta
+    end
+    for other_key, other in pairs(event_regions) do
+      if other_key ~= key and other.start >= old_finish then
+        other.start = other.start + delta
+        other.finish = other.finish + delta
+      end
+    end
+    return
+  end
+
+  local existing = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local start
+  if assistant_start then
+    start = assistant_start
+    vim.api.nvim_buf_set_lines(buf, start, start, false, lines)
+    assistant_start = assistant_start + #lines
+  elseif #existing == 1 and existing[1] == "" then
+    start = 0
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  else
+    start = vim.api.nvim_buf_line_count(buf)
+    vim.api.nvim_buf_set_lines(buf, -1, -1, false, lines)
+  end
+  event_regions[key] = { start = start, finish = start + #lines }
 end
 
 function M.append_user(text)
@@ -90,6 +145,7 @@ function M.reset()
   end
   bufnr = nil
   assistant_start = nil
+  event_regions = {}
 end
 
 return M

@@ -1,6 +1,7 @@
 local process = require("hermes.process")
 local rpc = require("hermes.rpc")
 local session = require("hermes.session")
+local config = require("hermes.config")
 
 local function reset_modules()
   package.loaded["hermes.session"] = nil
@@ -11,12 +12,15 @@ describe("hermes session lifecycle", function()
   local original_start
   local original_request
   local original_notify
+  local original_state_file
 
   before_each(function()
     reset_modules()
     original_start = process.start
     original_request = rpc.request
     original_notify = vim.notify
+    original_state_file = config.options.state_file
+    config.options.state_file = vim.fn.tempname()
     vim.notify = function() end
   end)
 
@@ -24,6 +28,8 @@ describe("hermes session lifecycle", function()
     process.start = original_start
     rpc.request = original_request
     vim.notify = original_notify
+    vim.fn.delete(config.options.state_file)
+    config.options.state_file = original_state_file
   end)
 
   it("queues callers while one session is being created", function()
@@ -133,5 +139,47 @@ describe("hermes session lifecycle", function()
 
     exits[1](0)
     assert.equals(2, starts)
+  end)
+
+  it("resumes the persisted durable session before creating a new one", function()
+    require("hermes.state").save(config.options.state_file, "stored-id")
+    process.start = function()
+      return true
+    end
+    local request
+    rpc.request = function(method, params, on_result)
+      request = { method = method, params = params }
+      on_result({
+        session_id = "live-id",
+        session_key = "stored-id",
+        resumed = "stored-id",
+        messages = { { role = "user", text = "Earlier" } },
+      })
+    end
+
+    local result
+    session.ensure_session(function(id, err, details)
+      result = { id = id, err = err, details = details }
+    end)
+
+    assert.equals("session.resume", request.method)
+    assert.equals("stored-id", request.params.session_id)
+    assert.equals("hermes.nvim", request.params.source)
+    assert.equals("live-id", result.id)
+    assert.equals("Earlier", result.details.messages[1].text)
+  end)
+
+  it("persists the durable id returned by session.create", function()
+    process.start = function()
+      return true
+    end
+    rpc.request = function(method, _, on_result)
+      assert.equals("session.create", method)
+      on_result({ session_id = "live-id", stored_session_id = "stored-id" })
+    end
+
+    session.ensure_session(function() end)
+
+    assert.equals("stored-id", require("hermes.state").load(config.options.state_file))
   end)
 end)

@@ -4,6 +4,9 @@ A small Neovim chat client for a remote [Hermes Agent](https://github.com/NousRe
 
 Version 1 keeps one live conversation in a temporary Markdown buffer. Hermes owns the canonical session and model context; the plugin owns only the local UI and connection process.
 
+The v2 development branch adds durable resume, interactive approvals and
+clarifications, tool/reasoning rendering, and turn interruption.
+
 ## Requirements
 
 - Neovim 0.10 or later
@@ -91,6 +94,29 @@ Close the live session and bridge process:
 :HermesStop
 ```
 
+Interrupt the active turn without ending the conversation:
+
+```vim
+:HermesInterrupt
+```
+
+Start a new durable conversation and clear the scratch transcript:
+
+```vim
+:HermesNew
+```
+
+The current durable session ID is stored under Neovim's state directory by
+default. Opening `:Hermes` after restarting Neovim resumes that Hermes session
+and hydrates the scratch buffer from Hermes's canonical transcript.
+
+When Hermes requests command approval or clarification, hermes.nvim uses
+`vim.ui.select()` or `vim.ui.input()`. UI plugins such as dressing.nvim can
+customize those prompts without changing hermes.nvim.
+
+Reasoning is rendered in a Markdown `<details>` block. Tool calls are shown as
+compact rows that update from started to working to complete.
+
 The temporary buffer remains available until Neovim deletes it. Version 1 supports one live conversation per Neovim instance.
 
 ## Current scope
@@ -105,13 +131,14 @@ Implemented:
 - streamed `message.delta` rendering
 - `message.complete` fallback and turn completion
 - basic process-disconnect recovery
+- durable session resume and transcript hydration
+- new-conversation control
+- approval and clarification prompts
+- reasoning and tool event rendering
+- active-turn interruption
 
 Deferred:
 
-- durable session resume across Neovim restarts
-- approvals and clarification prompts
-- tool and reasoning event rendering
-- interrupting an active turn
 - multiple simultaneous conversations
 - richer prompt composition and buffer-context attachment
 

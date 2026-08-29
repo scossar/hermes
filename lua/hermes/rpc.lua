@@ -47,10 +47,16 @@ function M.handle_message(frame)
     end
     pending[frame.id] = nil -- done with this id; free the slot
 
-    if frame.error and waiter.on_error then
-      waiter.on_error(frame.error)
-    elseif frame.result ~= nil and waiter.on_result then
-      waiter.on_result(frame.result)
+    if frame.error then
+      if waiter.on_error then
+        waiter.on_error(frame.error)
+      end
+    elseif frame.result ~= nil then
+      if waiter.on_result then
+        waiter.on_result(frame.result)
+      end
+    elseif waiter.on_error then
+      waiter.on_error({ code = -32603, message = "malformed JSON-RPC response" })
     end
     return
   end

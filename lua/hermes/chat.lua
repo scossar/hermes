@@ -1,6 +1,8 @@
 local buffer = require("hermes.buffer")
 local rpc = require("hermes.rpc")
 local session = require("hermes.session")
+local history = require("hermes.history")
+local events = require("hermes.events")
 
 local M = {}
 
@@ -63,6 +65,7 @@ local function ask(text, options)
   active_session_id = nil
   saw_delta = false
   delimit_response = options.delimiter == true
+  events.reset_turn()
 
   buffer.show()
   if not options.selection then
@@ -104,6 +107,19 @@ function M.ask_selection(text)
   ask(text, { selection = true, delimiter = true })
 end
 
+function M.open()
+  buffer.show()
+  session.ensure_session(function(_, err, details)
+    if err then
+      vim.notify("hermes: " .. (err.message or "could not open session"), vim.log.levels.ERROR)
+      return
+    end
+    if details and details.messages and #details.messages > 0 then
+      history.render(details.messages)
+    end
+  end)
+end
+
 function M.is_running()
   return running
 end
@@ -114,6 +130,23 @@ function M.stop()
     buffer.finish_assistant()
   end
   M.reset()
+end
+
+function M.interrupt()
+  if not running or not active_session_id then
+    vim.notify("hermes: no active turn to interrupt", vim.log.levels.INFO)
+    return
+  end
+  local interrupted_session = active_session_id
+  rpc.request("session.interrupt", { session_id = interrupted_session }, function()
+    if running and active_session_id == interrupted_session then
+      buffer.append("_Interrupted._")
+      buffer.finish_assistant({ delimiter = delimit_response })
+      M.reset()
+    end
+  end, function(err)
+    vim.notify("hermes: interrupt failed: " .. (err.message or "unknown error"), vim.log.levels.ERROR)
+  end)
 end
 
 function M.reset()
