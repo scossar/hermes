@@ -62,6 +62,16 @@ describe("hermes chat buffer", function()
     )
   end)
 
+  it("finishes assistant responses with a markdown delimiter", function()
+    local bufnr = buffer.ensure_buffer()
+    buffer.begin_assistant()
+    buffer.append("Answer")
+
+    buffer.finish_assistant({ delimiter = true })
+
+    assert.same({ "", "", "## Hermes", "", "Answer", "", "---" }, vim.api.nvim_buf_get_lines(bufnr, 0, -1, false))
+  end)
+
   it("opens in a split when the current buffer cannot be abandoned", function()
     local current = vim.api.nvim_get_current_buf()
     vim.bo[current].modified = true

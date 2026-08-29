@@ -7,6 +7,7 @@ local M = {}
 local active_session_id = nil
 local running = false
 local saw_delta = false
+local delimit_response = false
 
 local function event_for_active_session(params)
   return running and params.session_id == active_session_id
@@ -30,7 +31,7 @@ function M.setup()
     if payload.text and payload.text ~= "" then
       buffer.replace_assistant(payload.text)
     end
-    buffer.finish_assistant()
+    buffer.finish_assistant({ delimiter = delimit_response })
     running = false
     active_session_id = nil
   end)
@@ -45,8 +46,9 @@ function M.setup()
   end)
 end
 
-function M.ask(text)
+local function ask(text, options)
   M.setup()
+  options = options or {}
   text = vim.trim(text or "")
   if text == "" then
     vim.notify("hermes: prompt cannot be empty", vim.log.levels.WARN)
@@ -60,9 +62,12 @@ function M.ask(text)
   running = true
   active_session_id = nil
   saw_delta = false
+  delimit_response = options.delimiter == true
 
   buffer.show()
-  buffer.append_user(text)
+  if not options.selection then
+    buffer.append_user(text)
+  end
   buffer.begin_assistant()
 
   session.ensure_session(function(session_id, err)
@@ -91,6 +96,14 @@ function M.ask(text)
   end)
 end
 
+function M.ask(text)
+  ask(text)
+end
+
+function M.ask_selection(text)
+  ask(text, { selection = true, delimiter = true })
+end
+
 function M.is_running()
   return running
 end
@@ -107,6 +120,7 @@ function M.reset()
   active_session_id = nil
   running = false
   saw_delta = false
+  delimit_response = false
 end
 
 return M

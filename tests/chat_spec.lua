@@ -120,6 +120,42 @@ describe("hermes basic chat", function()
     }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
   end)
 
+  it("sends selected text without duplicating it and delimits the response", function()
+    local bufnr = buffer.ensure_buffer()
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Selected prompt" })
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    local submitted
+    rpc.request = function(method, params)
+      submitted = { method = method, params = params }
+    end
+
+    chat.ask_selection("Selected prompt")
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.complete",
+        session_id = "runtime-session",
+        payload = { text = "Selected response", status = "complete" },
+      },
+    })
+
+    assert.same({
+      method = "prompt.submit",
+      params = { session_id = "runtime-session", text = "Selected prompt" },
+    }, submitted)
+    assert.same({
+      "Selected prompt",
+      "",
+      "## Hermes",
+      "",
+      "Selected response",
+      "",
+      "---",
+    }, vim.api.nvim_buf_get_lines(bufnr, 0, -1, false))
+  end)
+
   it("replaces streamed text with the authoritative completed response", function()
     session.ensure_session = function(cb)
       cb("runtime-session")

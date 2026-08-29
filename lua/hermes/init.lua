@@ -16,7 +16,7 @@ function M.ask(prompt)
 end
 
 function M.ask_selection()
-  chat.ask(selection.current())
+  chat.ask_selection(selection.current())
 end
 
 function M.open()

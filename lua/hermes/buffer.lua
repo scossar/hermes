@@ -70,13 +70,17 @@ function M.replace_assistant(text)
   vim.api.nvim_buf_set_lines(buf, assistant_start, -1, false, vim.split(text, "\n", { plain = true }))
 end
 
-function M.finish_assistant()
+function M.finish_assistant(options)
+  options = options or {}
   local buf = M.ensure_buffer()
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   while #lines > 1 and lines[#lines] == "" and lines[#lines - 1] == "" do
     table.remove(lines)
   end
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  if options.delimiter then
+    vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "", "---" })
+  end
   assistant_start = nil
 end
 
