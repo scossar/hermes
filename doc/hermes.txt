@@ -1,4 +1,4 @@
-*hermes.txt*   A Neovim plugin
+*hermes.txt*   A Neovim chat client for Hermes Agent
 
 ==============================================================================
 CONTENTS                                                     *hermes-contents*
@@ -6,23 +6,47 @@ CONTENTS                                                     *hermes-contents*
     1. Introduction ........... |hermes-introduction|
     2. Setup .................. |hermes-setup|
     3. Commands ............... |hermes-commands|
+    4. Scope .................. |hermes-scope|
 
 ==============================================================================
 1. Introduction                                          *hermes-introduction*
 
-hermes.nvim is a Neovim plugin.
+hermes.nvim connects Neovim to a `hermes serve` backend through a small Node
+WebSocket bridge. One live conversation is rendered in a temporary Markdown
+buffer. Hermes remains the canonical owner of session history and context.
 
 ==============================================================================
 2. Setup                                                        *hermes-setup*
 
-Call the setup function in your config: >lua
+Requirements: Neovim 0.10+, Node.js 22+, and a reachable Hermes backend.
+
+The default backend is http://127.0.0.1:9119. Call setup from your config: >lua
+    require("hermes").setup({})
+<
+Override the bridge command when necessary: >lua
     require("hermes").setup({
-      enabled = true,
+      bridge_cmd = {
+        "node",
+        "/path/to/hermes.nvim/bridge/dist/bridge.js",
+        "http://127.0.0.1:9119",
+      },
     })
 <
 ==============================================================================
 3. Commands                                                  *hermes-commands*
 
-:Hermes                     Run the example command.
+:Hermes {prompt}            Send a prompt to the current Hermes conversation.
+                            The response streams into `hermes://chat`.
+
+:Hermes                     Open the current chat buffer without sending.
+
+:HermesStop                 Close the live Hermes session and bridge process.
+
+==============================================================================
+4. Scope                                                        *hermes-scope*
+
+Version 1 supports one temporary chat and one live Hermes session per Neovim
+instance. Durable resume, approvals, clarifications, tool event rendering,
+interruption, and multiple conversations are intentionally deferred.
 
 vim:tw=78:ts=8:noet:ft=help:norl:

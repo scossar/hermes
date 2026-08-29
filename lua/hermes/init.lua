@@ -1,16 +1,25 @@
 local config = require("hermes.config")
+local chat = require("hermes.chat")
+local buffer = require("hermes.buffer")
+local session = require("hermes.session")
 
 local M = {}
 
---- Setup the plugin with user options.
---- @param opts table|nil User configuration overrides
 function M.setup(opts)
   config.options = vim.tbl_deep_extend("force", config.defaults, opts or {})
+  chat.setup()
 end
 
---- Example command implementation.
-function M.hello()
-  vim.notify("Hello from hermes.nvim!", vim.log.levels.INFO)
+function M.ask(prompt)
+  chat.ask(prompt)
+end
+
+function M.open()
+  buffer.show()
+end
+
+function M.stop()
+  session.shutdown()
 end
 
 return M

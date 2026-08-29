@@ -3,6 +3,17 @@ if vim.g.loaded_hermes then
 end
 vim.g.loaded_hermes = true
 
-vim.api.nvim_create_user_command("Hermes", function()
-  require("hermes").hello()
-end, { desc = "Run hermes.nvim's xample command" })
+vim.api.nvim_create_user_command("Hermes", function(opts)
+  if opts.args == "" then
+    require("hermes").open()
+    return
+  end
+  require("hermes").ask(opts.args)
+end, {
+  desc = "Open hermes.nvim or send a prompt",
+  nargs = "*",
+})
+
+vim.api.nvim_create_user_command("HermesStop", function()
+  require("hermes").stop()
+end, { desc = "Close the current Hermes connection" })

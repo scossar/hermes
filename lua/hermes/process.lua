@@ -6,6 +6,7 @@ local M = {}
 local job = nil
 local buffer = ""
 local on_message_cb = nil
+local on_exit_cb = nil
 
 local function handle_stdout(err, data)
   if err then
@@ -51,12 +52,15 @@ end
 
 --- @param cmd table e.g. { "node", "/path/to/bridge.js", "ws://100.x.x.x:8765" }
 --- @param on_message fun(msg: table)
-function M.start(cmd, on_message)
+--- @param on_exit fun(code: integer)|nil
+--- @return boolean
+function M.start(cmd, on_message, on_exit)
   if job then
     vim.notify("hermes: process already running", vim.log.levels.WARN)
-    return
+    return false
   end
   on_message_cb = on_message
+  on_exit_cb = on_exit
   buffer = ""
 
   job = vim.system(cmd, {
@@ -75,8 +79,12 @@ function M.start(cmd, on_message)
         vim.notify("hermes: bridge exited with code " .. obj.code, vim.log.levels.ERROR)
       end
       job = nil
+      if on_exit_cb then
+        on_exit_cb(obj.code)
+      end
     end)
   end)
+  return true
 end
 
 function M.send(msg)
@@ -90,7 +98,6 @@ end
 function M.stop()
   if job then
     job:write(nil) -- closes stdin -> triggers stdin "end" -> node closes ws and exits
-    job = nil
   end
 end
 

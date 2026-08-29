@@ -28,6 +28,16 @@ function M.on_event(event_type, handler)
   event_handlers[event_type] = handler
 end
 
+function M.fail_pending(err)
+  local waiters = pending
+  pending = {}
+  for _, waiter in pairs(waiters) do
+    if waiter.on_error then
+      waiter.on_error(err)
+    end
+  end
+end
+
 --- process.lua's on_message callback. One frame in, dispatched by shape.
 function M.handle_message(frame)
   if frame.id ~= nil then

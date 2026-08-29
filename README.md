@@ -1,45 +1,113 @@
 # hermes.nvim
 
-A Neovim plugin.
+A small Neovim chat client for a remote [Hermes Agent](https://github.com/NousResearch/hermes-agent) backend.
+
+Version 1 keeps one live conversation in a temporary Markdown buffer. Hermes owns the canonical session and model context; the plugin owns only the local UI and connection process.
+
+## Requirements
+
+- Neovim 0.10 or later
+- Node.js 22 or later
+- A running `hermes serve` backend reachable at a local HTTP address
+
+For the loopback-plus-SSH setup, start Hermes on the VPS:
+
+```bash
+hermes serve --host 127.0.0.1 --port 9119
+```
+
+Then open the tunnel locally:
+
+```bash
+ssh -N -L 9119:127.0.0.1:9119 user@vps
+```
 
 ## Installation
 
-Using [lazy.nvim](https://github.com/folke/lazy.nvim):
+Using lazy.nvim:
 
 ```lua
 {
-  "yourusername/hermes.nvim",
+  "scossar/hermes",
+  branch = "feat/v1-basic-chat", -- development branch
+  build = "cd bridge && npm ci && npm run build",
   opts = {},
 }
 ```
 
-Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
+The compiled bridge is committed, but the build step ensures it matches the TypeScript source.
 
-```lua
-use({
-  "yourusername/hermes.nvim",
-  config = function()
-    require("hermes").setup({})
-  end,
-})
-```
-
-## Usage
+## Configuration
 
 ```lua
 require("hermes").setup({
-  enabled = true,
+  bridge_cmd = {
+    "node",
+    vim.fn.stdpath("data") .. "/lazy/hermes/bridge/dist/bridge.js",
+    "http://127.0.0.1:9119",
+  },
 })
 ```
 
-Run `:Hermes` to try the example command.
+The default bridge path is resolved from the plugin's own installation directory, so most installations can use `opts = {}`.
+
+## Usage
+
+Send a prompt:
+
+```vim
+:Hermes Explain the current buffer
+```
+
+The prompt and streamed response appear in an unlisted temporary Markdown buffer named `hermes://chat`.
+
+Open the existing chat buffer without sending a prompt:
+
+```vim
+:Hermes
+```
+
+Close the live session and bridge process:
+
+```vim
+:HermesStop
+```
+
+The temporary buffer remains available until Neovim deletes it. Version 1 supports one live conversation per Neovim instance.
+
+## Current scope
+
+Implemented:
+
+- loopback Hermes bootstrap token retrieval
+- JSON-RPC over WebSocket through a Node bridge
+- reliable request queueing while waiting for `gateway.ready`
+- one live Hermes session tagged `hermes.nvim`
+- prompt submission
+- streamed `message.delta` rendering
+- `message.complete` fallback and turn completion
+- basic process-disconnect recovery
+
+Deferred:
+
+- durable session resume across Neovim restarts
+- approvals and clarification prompts
+- tool and reasoning event rendering
+- interrupting an active turn
+- multiple simultaneous conversations
+- richer prompt composition and buffer-context attachment
 
 ## Development
 
-- Format: `stylua .`
-- Test: see `.github/workflows/ci.yml` for the headless test invocation using
-  [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)'s busted-style
-  runner.
+```bash
+cd bridge
+npm ci
+npm test
+npm run typecheck
+npm run build
+```
+
+Lua tests use plenary.nvim; see `.github/workflows/ci.yml` for the complete command.
 
 ## License
 

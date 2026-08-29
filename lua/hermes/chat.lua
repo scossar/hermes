@@ -1,0 +1,95 @@
+local buffer = require("hermes.buffer")
+local rpc = require("hermes.rpc")
+local session = require("hermes.session")
+
+local M = {}
+
+local active_session_id = nil
+local running = false
+local saw_delta = false
+
+local function event_for_active_session(params)
+  return running and params.session_id == active_session_id
+end
+
+function M.setup()
+  rpc.on_event("message.delta", function(params)
+    if not event_for_active_session(params) then
+      return
+    end
+    local payload = params.payload or {}
+    saw_delta = true
+    buffer.append(payload.text or "")
+  end)
+
+  rpc.on_event("message.complete", function(params)
+    if not event_for_active_session(params) then
+      return
+    end
+    local payload = params.payload or {}
+    if not saw_delta then
+      buffer.append(payload.text or "")
+    end
+    buffer.finish_assistant()
+    running = false
+    active_session_id = nil
+  end)
+end
+
+function M.ask(text)
+  M.setup()
+  text = vim.trim(text or "")
+  if text == "" then
+    vim.notify("hermes: prompt cannot be empty", vim.log.levels.WARN)
+    return
+  end
+  if running then
+    vim.notify("hermes: wait for the current response to finish", vim.log.levels.WARN)
+    return
+  end
+
+  running = true
+  active_session_id = nil
+  saw_delta = false
+
+  buffer.show()
+  buffer.append_user(text)
+  buffer.begin_assistant()
+
+  session.ensure_session(function(session_id, err)
+    if not session_id then
+      buffer.append(string.format("_Could not create a Hermes session: %s_", (err and err.message) or "unknown error"))
+      buffer.finish_assistant()
+      running = false
+      return
+    end
+    active_session_id = session_id
+
+    rpc.request(
+      "prompt.submit",
+      {
+        session_id = session_id,
+        text = text,
+      },
+      nil,
+      function(err)
+        buffer.append(string.format("_Request failed: %s_", err.message or "unknown error"))
+        buffer.finish_assistant()
+        running = false
+        active_session_id = nil
+      end
+    )
+  end)
+end
+
+function M.is_running()
+  return running
+end
+
+function M.reset()
+  active_session_id = nil
+  running = false
+  saw_delta = false
+end
+
+return M
