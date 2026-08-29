@@ -1,4 +1,3 @@
--- Guard against re-loading and against loading in non-Lua-compatible Neovim versions.
 if vim.g.loaded_hermes then
   return
 end
