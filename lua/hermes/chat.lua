@@ -95,6 +95,14 @@ function M.is_running()
   return running
 end
 
+function M.stop()
+  if running then
+    buffer.append("_Stopped before the response completed._")
+    buffer.finish_assistant()
+  end
+  M.reset()
+end
+
 function M.reset()
   active_session_id = nil
   running = false

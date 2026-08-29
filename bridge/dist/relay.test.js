@@ -26,5 +26,9 @@ test("ignores blank input lines", () => {
 });
 test("rejects an excessive startup queue", () => {
     const relay = new InputRelay(() => { }, { maxQueuedBytes: 5 });
-    assert.throws(() => relay.push("123456\n"), /startup queue exceeded/i);
+    assert.throws(() => relay.push("123456\n"), /exceeded its limit/i);
+});
+test("rejects an excessive unterminated input line", () => {
+    const relay = new InputRelay(() => { }, { maxQueuedBytes: 5 });
+    assert.throws(() => relay.push("123456"), /input buffer exceeded/i);
 });

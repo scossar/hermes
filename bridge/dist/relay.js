@@ -11,6 +11,9 @@ export class InputRelay {
     }
     push(chunk) {
         this.buffer += chunk.toString();
+        if (Buffer.byteLength(this.buffer) > this.maxQueuedBytes) {
+            throw new Error("Hermes bridge input buffer exceeded its limit");
+        }
         let index;
         while ((index = this.buffer.indexOf("\n")) !== -1) {
             const line = this.buffer.slice(0, index);

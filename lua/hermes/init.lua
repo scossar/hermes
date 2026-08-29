@@ -19,6 +19,7 @@ function M.open()
 end
 
 function M.stop()
+  chat.stop()
   session.shutdown()
 end
 

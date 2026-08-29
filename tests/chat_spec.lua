@@ -155,6 +155,19 @@ describe("hermes basic chat", function()
     )
   end)
 
+  it("can be stopped during an active response", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    rpc.request = function() end
+
+    chat.ask("Hello")
+    chat.stop()
+
+    assert.is_false(chat.is_running())
+    assert.matches("Stopped", table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n"))
+  end)
+
   it("recovers when session creation fails", function()
     session.ensure_session = function(cb)
       cb(nil, { message = "connection failed" })
