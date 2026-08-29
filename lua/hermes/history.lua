@@ -31,7 +31,7 @@ function M.render(messages)
       end
     elseif role == "tool" then
       local label = message.name or "tool"
-      local context = message.context or ""
+      local context = tostring(message.context or ""):gsub("\n", " ")
       table.insert(blocks, { string.format("`%s` %s", label, context) })
     end
   end

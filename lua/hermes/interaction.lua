@@ -63,12 +63,18 @@ local function handle_clarify(params)
   local questions = payload.questions
   if type(questions) == "table" and #questions > 0 then
     local index = 1
+    local locked = type(payload.answers) == "table" and payload.answers or {}
     local function next_question()
       if not current(sid, my_epoch) then
         return
       end
       local question = questions[index]
       if not question then
+        return
+      end
+      if locked[question.qid] ~= nil then
+        index = index + 1
+        next_question()
         return
       end
       choose_answer(question, function(answer)

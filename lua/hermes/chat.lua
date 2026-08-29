@@ -45,7 +45,7 @@ function M.setup()
       return
     end
     local payload = params.payload or {}
-    if interrupting then
+    if interrupting and (payload.status == "interrupted" or not (payload.text and payload.text ~= "")) then
       append_status("_Interrupted._")
     elseif payload.text and payload.text ~= "" then
       buffer.replace_assistant(payload.text)

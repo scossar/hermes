@@ -6,6 +6,7 @@ local M = {}
 local next_id = 0
 local pending = {} -- [id] = { on_result = fn, on_error = fn }
 local event_handlers = {}
+local event_sequences = {}
 
 --- Send a JSON-RPC request. on_result(result) or on)error(err) is called
 function M.request(method, params, on_result, on_error)
@@ -31,6 +32,7 @@ end
 function M.fail_pending(err)
   local waiters = pending
   pending = {}
+  event_sequences = {}
   for _, waiter in pairs(waiters) do
     if waiter.on_error then
       waiter.on_error(err)
@@ -66,6 +68,15 @@ function M.handle_message(frame)
   end
 
   local params = frame.params or {}
+  local sid = params.session_id
+  local seq = params.seq
+  if sid and type(seq) == "number" then
+    local previous = event_sequences[sid] or 0
+    if seq <= previous then
+      return
+    end
+    event_sequences[sid] = seq
+  end
   local handler = event_handlers[params.type]
   if handler then
     handler(params)
