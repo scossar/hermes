@@ -37,8 +37,7 @@ function M.interrupt()
 end
 
 function M.new_session()
-  chat.stop()
-  buffer.clear()
+  chat.reset_conversation()
   session.new_session(function(_, err)
     if err then
       vim.notify("hermes: could not create a new session: " .. (err.message or "unknown error"), vim.log.levels.ERROR)

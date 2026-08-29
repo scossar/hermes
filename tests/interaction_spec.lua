@@ -96,8 +96,11 @@ describe("interactive Hermes prompts", function()
 
   it("locks each answer in a batch clarification", function()
     local sent = {}
-    rpc.request = function(method, params)
+    rpc.request = function(method, params, on_result)
       table.insert(sent, { method = method, params = params })
+      if on_result then
+        on_result({ status = "ok" })
+      end
     end
 
     rpc.handle_message({
@@ -120,5 +123,36 @@ describe("interactive Hermes prompts", function()
     assert.equals("one", sent[1].params.answer)
     assert.equals("q2", sent[2].params.question_id)
     assert.equals("typed answer", sent[2].params.answer)
+  end)
+
+  it("cancels an entire clarification batch without opening later questions", function()
+    local prompts = 0
+    vim.ui.select = function(_, _, callback)
+      prompts = prompts + 1
+      callback(nil)
+    end
+    local sent
+    rpc.request = function(method, params)
+      sent = { method = method, params = params }
+    end
+
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "clarify.request",
+        session_id = "live-session",
+        payload = {
+          request_id = "batch",
+          questions = {
+            { qid = "q1", question = "First?", choices = { "one" } },
+            { qid = "q2", question = "Second?", choices = { "two" } },
+          },
+        },
+      },
+    })
+
+    assert.equals(1, prompts)
+    assert.is_nil(sent.params.question_id)
+    assert.equals("", sent.params.answer)
   end)
 end)

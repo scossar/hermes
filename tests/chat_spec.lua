@@ -199,10 +199,7 @@ describe("hermes basic chat", function()
 
     assert.is_true(chat.is_running())
     assert.matches("wait for the current response", notifications[#notifications])
-    assert.same(
-      { "## You", "", "First", "", "## Hermes", "", "" },
-      vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false)
-    )
+    assert.same({ "" }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
   end)
 
   it("recovers when the bridge disconnects during a response", function()
@@ -256,6 +253,15 @@ describe("hermes basic chat", function()
 
     assert.equals("session.interrupt", requests[2].method)
     assert.equals("runtime-session", requests[2].params.session_id)
+    assert.is_true(chat.is_running())
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.complete",
+        session_id = "runtime-session",
+        payload = { status = "interrupted" },
+      },
+    })
     assert.is_false(chat.is_running())
     assert.matches("Interrupted", table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n"))
   end)

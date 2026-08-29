@@ -3,6 +3,7 @@ local M = {}
 local bufnr = nil
 local assistant_start = nil
 local event_regions = {}
+local event_namespace = 0
 
 local function set_lines(lines)
   local buf = M.ensure_buffer()
@@ -62,6 +63,12 @@ function M.clear()
 end
 
 function M.set_event(key, lines)
+  key = tostring(event_namespace) .. ":" .. key
+  local normalized = {}
+  for _, line in ipairs(lines) do
+    vim.list_extend(normalized, vim.split(tostring(line or ""), "\n", { plain = true }))
+  end
+  lines = normalized
   local buf = M.ensure_buffer()
   local region = event_regions[key]
   if region then
@@ -96,6 +103,11 @@ function M.set_event(key, lines)
     vim.api.nvim_buf_set_lines(buf, -1, -1, false, lines)
   end
   event_regions[key] = { start = start, finish = start + #lines }
+end
+
+function M.begin_event_turn()
+  event_namespace = event_namespace + 1
+  event_regions = {}
 end
 
 function M.append_user(text)
@@ -146,6 +158,7 @@ function M.reset()
   bufnr = nil
   assistant_start = nil
   event_regions = {}
+  event_namespace = 0
 end
 
 return M

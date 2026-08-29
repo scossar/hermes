@@ -13,6 +13,7 @@ describe("tool and reasoning events", function()
       return "live-session"
     end
     events.setup()
+    events.begin_turn()
   end)
 
   after_each(function()
