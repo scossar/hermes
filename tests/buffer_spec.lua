@@ -61,4 +61,15 @@ describe("hermes chat buffer", function()
       vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
     )
   end)
+
+  it("opens in a split when the current buffer cannot be abandoned", function()
+    local current = vim.api.nvim_get_current_buf()
+    vim.bo[current].modified = true
+    local old_hidden = vim.o.hidden
+    vim.o.hidden = false
+
+    assert.has_no.errors(buffer.show)
+    vim.o.hidden = old_hidden
+    assert.equals(buffer.ensure_buffer(), vim.api.nvim_get_current_buf())
+  end)
 end)

@@ -9,14 +9,62 @@ local stored_session_id = nil
 local state = "stopped"
 local waiters = {}
 local disconnect_handler = nil
+local reset
+local notify_waiters
+local fail_waiters
 
-local function reset()
+local function start_session()
+  state = "connecting"
+  local started = process.start(config.options.bridge_cmd, rpc.handle_message, function(code)
+    local was_active = state == "active"
+    reset()
+    rpc.fail_pending({ code = -32000, message = "bridge process exited" })
+    if was_active and disconnect_handler then
+      disconnect_handler()
+    end
+    if code ~= 0 or was_active then
+      vim.notify("hermes: bridge disconnected", vim.log.levels.ERROR)
+    end
+    if #waiters > 0 then
+      start_session()
+    end
+  end)
+
+  if not started then
+    fail_waiters("could not start bridge process")
+    return
+  end
+
+  state = "creating"
+  rpc.request("session.create", {
+    cols = 100,
+    cwd = vim.fn.getcwd(),
+    source = "hermes.nvim",
+    title = "hermes.nvim session",
+  }, function(result)
+    session_id = result.session_id
+    stored_session_id = result.stored_session_id
+    state = "active"
+    notify_waiters(session_id)
+  end, function(err)
+    local callbacks = waiters
+    waiters = {}
+    state = "stopping"
+    for _, callback in ipairs(callbacks) do
+      callback(nil, { message = "session.create failed: " .. (err.message or "unknown error") })
+    end
+    vim.notify("hermes: session.create failed: " .. (err.message or "unknown error"), vim.log.levels.ERROR)
+    process.stop()
+  end)
+end
+
+reset = function()
   session_id = nil
   stored_session_id = nil
   state = "stopped"
 end
 
-local function notify_waiters(id)
+notify_waiters = function(id)
   local callbacks = waiters
   waiters = {}
   for _, callback in ipairs(callbacks) do
@@ -24,7 +72,7 @@ local function notify_waiters(id)
   end
 end
 
-local function fail_waiters(message)
+fail_waiters = function(message)
   local callbacks = waiters
   waiters = {}
   reset()
@@ -57,43 +105,10 @@ function M.ensure_session(cb)
   end
 
   table.insert(waiters, cb)
-  if state == "connecting" or state == "creating" then
+  if state ~= "stopped" then
     return
   end
-
-  state = "connecting"
-  local started = process.start(config.options.bridge_cmd, rpc.handle_message, function(code)
-    local was_active = state == "active"
-    reset()
-    rpc.fail_pending({ code = -32000, message = "bridge process exited" })
-    if was_active and disconnect_handler then
-      disconnect_handler()
-    end
-    if code ~= 0 or was_active then
-      vim.notify("hermes: bridge disconnected", vim.log.levels.ERROR)
-    end
-  end)
-
-  if not started then
-    fail_waiters("could not start bridge process")
-    return
-  end
-
-  state = "creating"
-  rpc.request("session.create", {
-    cols = 100,
-    cwd = vim.fn.getcwd(),
-    source = "hermes.nvim",
-    title = "hermes.nvim session",
-  }, function(result)
-    session_id = result.session_id
-    stored_session_id = result.stored_session_id
-    state = "active"
-    notify_waiters(session_id)
-  end, function(err)
-    fail_waiters("session.create failed: " .. (err.message or "unknown error"))
-    process.stop()
-  end)
+  start_session()
 end
 
 function M.shutdown()

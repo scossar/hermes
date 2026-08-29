@@ -111,4 +111,27 @@ describe("hermes session lifecycle", function()
     }, errors)
     assert.is_false(session.is_active())
   end)
+
+  it("queues an immediate retry until the previous bridge exits", function()
+    local exits = {}
+    local create_error
+    local starts = 0
+    process.start = function(_, _, on_exit)
+      starts = starts + 1
+      table.insert(exits, on_exit)
+      return true
+    end
+    process.stop = function() end
+    rpc.request = function(_, _, _, on_error)
+      create_error = on_error
+    end
+
+    session.ensure_session(function() end)
+    create_error({ message = "first failed" })
+    session.ensure_session(function() end)
+    assert.equals(1, starts)
+
+    exits[1](0)
+    assert.equals(2, starts)
+  end)
 end)

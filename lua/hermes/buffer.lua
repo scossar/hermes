@@ -21,7 +21,12 @@ function M.ensure_buffer()
 end
 
 function M.show()
-  vim.api.nvim_set_current_buf(M.ensure_buffer())
+  local buf = M.ensure_buffer()
+  local ok = pcall(vim.api.nvim_set_current_buf, buf)
+  if not ok then
+    vim.cmd("split")
+    vim.api.nvim_set_current_buf(buf)
+  end
 end
 
 function M.append(text)
