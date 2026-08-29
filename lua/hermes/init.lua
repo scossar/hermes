@@ -2,6 +2,7 @@ local config = require("hermes.config")
 local chat = require("hermes.chat")
 local buffer = require("hermes.buffer")
 local session = require("hermes.session")
+local selection = require("hermes.selection")
 
 local M = {}
 
@@ -12,6 +13,10 @@ end
 
 function M.ask(prompt)
   chat.ask(prompt)
+end
+
+function M.ask_selection()
+  chat.ask(selection.current())
 end
 
 function M.open()

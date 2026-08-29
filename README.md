@@ -56,8 +56,26 @@ The default bridge path is resolved from the plugin's own installation directory
 Send a prompt:
 
 ```vim
-:Hermes Explain the current buffer
+:Hermes Explain WebSockets in one paragraph
 ```
+
+Send visually selected text by selecting it and running:
+
+```vim
+:'<,'>HermesSendSelection
+```
+
+The command is designed for a visual-mode mapping. For example:
+
+```lua
+vim.keymap.set("v", "<leader>z", ":HermesSendSelection<CR>", {
+  desc = "Send selection to Hermes",
+  silent = true,
+})
+```
+
+Only the selected text is sent. The plugin does not implicitly attach the
+entire current buffer or codebase.
 
 The prompt and streamed response appear in an unlisted temporary Markdown buffer named `hermes://chat`.
 

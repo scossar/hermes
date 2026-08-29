@@ -40,6 +40,9 @@ Override the bridge command when necessary: >lua
 
 :Hermes                     Open the current chat buffer without sending.
 
+:'<,'>HermesSendSelection   Send the current visual selection as a prompt.
+                            This is suitable for a visual-mode mapping.
+
 :HermesStop                 Close the live Hermes session and bridge process.
 
 ==============================================================================

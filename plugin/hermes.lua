@@ -17,3 +17,10 @@ end, {
 vim.api.nvim_create_user_command("HermesStop", function()
   require("hermes").stop()
 end, { desc = "Close the current Hermes connection" })
+
+vim.api.nvim_create_user_command("HermesSendSelection", function()
+  require("hermes").ask_selection()
+end, {
+  desc = "Send the visual selection to Hermes",
+  range = true,
+})
