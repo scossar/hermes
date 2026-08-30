@@ -63,7 +63,7 @@ function M.start(cmd, on_message, on_exit)
   on_exit_cb = on_exit
   buffer = ""
 
-  job = vim.system(cmd, {
+  local ok, started_job = pcall(vim.system, cmd, {
     stdin = true,
     stdout = handle_stdout,
     -- Session lifecycle owns user-facing connection errors. Consuming stderr
@@ -77,6 +77,10 @@ function M.start(cmd, on_message, on_exit)
       end
     end)
   end)
+  if not ok then
+    return false
+  end
+  job = started_job
   return true
 end
 

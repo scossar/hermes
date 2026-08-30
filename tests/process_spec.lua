@@ -42,4 +42,15 @@ describe("hermes bridge process", function()
     assert.equals(1, exited)
     assert.same({}, notifications)
   end)
+
+  it("returns false when vim.system raises during startup", function()
+    vim.system = function()
+      error("ENOENT: node executable not found")
+    end
+
+    local ok, started = pcall(process.start, { "node", "bridge.js" }, function() end)
+
+    assert.is_true(ok)
+    assert.is_false(started)
+  end)
 end)
