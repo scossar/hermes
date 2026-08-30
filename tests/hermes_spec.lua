@@ -29,6 +29,103 @@ describe("hermes.nvim", function()
     assert.equals("test prompt", prompt)
   end)
 
+  it("preserves the conversation when a new session cannot be created", function()
+    local chat = require("hermes.chat")
+    local session = require("hermes.session")
+    local original_reset = chat.reset_conversation
+    local original_new_session = session.new_session
+    local original_notify = vim.notify
+    local reset = false
+    chat.reset_conversation = function()
+      reset = true
+    end
+    session.new_session = function(callback)
+      callback(nil, { message = "could not clear durable session" })
+    end
+    vim.notify = function() end
+
+    hermes.new_session()
+
+    chat.reset_conversation = original_reset
+    session.new_session = original_new_session
+    vim.notify = original_notify
+    assert.is_false(reset)
+  end)
+
+  it("blocks prompts only while a new session is pending", function()
+    local chat = require("hermes.chat")
+    local session = require("hermes.session")
+    local original_new_session = session.new_session
+    local original_ensure_session = session.ensure_session
+    local original_notify = vim.notify
+    local new_session_callback
+    local ensure_calls = 0
+    local notifications = {}
+    chat.reset_conversation()
+    session.new_session = function(callback)
+      new_session_callback = callback
+    end
+    session.ensure_session = function()
+      ensure_calls = ensure_calls + 1
+    end
+    vim.notify = function(message)
+      table.insert(notifications, message)
+    end
+
+    hermes.new_session()
+    hermes.ask("racing prompt")
+
+    assert.equals(0, ensure_calls)
+    assert.matches("new session", notifications[#notifications])
+
+    new_session_callback(nil, { message = "could not clear durable session" })
+    hermes.ask("prompt after failure")
+
+    session.new_session = original_new_session
+    session.ensure_session = original_ensure_session
+    vim.notify = original_notify
+    chat.stop()
+    assert.equals(1, ensure_calls)
+  end)
+
+  it("rejects overlapping new sessions until the active replacement succeeds", function()
+    local chat = require("hermes.chat")
+    local session = require("hermes.session")
+    local original_new_session = session.new_session
+    local original_ensure_session = session.ensure_session
+    local original_notify = vim.notify
+    local new_session_callbacks = {}
+    local ensure_calls = 0
+    local notifications = {}
+    chat.reset_conversation()
+    session.new_session = function(callback)
+      table.insert(new_session_callbacks, callback)
+    end
+    session.ensure_session = function()
+      ensure_calls = ensure_calls + 1
+    end
+    vim.notify = function(message)
+      table.insert(notifications, message)
+    end
+
+    hermes.new_session()
+    hermes.new_session()
+    hermes.ask("prompt while replacement is pending")
+
+    assert.equals(1, #new_session_callbacks)
+    assert.equals(0, ensure_calls)
+    assert.matches("new session", notifications[#notifications])
+
+    new_session_callbacks[1]("replacement-session")
+    hermes.ask("prompt after replacement")
+
+    session.new_session = original_new_session
+    session.ensure_session = original_ensure_session
+    vim.notify = original_notify
+    chat.stop()
+    assert.equals(1, ensure_calls)
+  end)
+
   it("initializes public operations once and still applies later setup options", function()
     local chat = require("hermes.chat")
     local interaction = require("hermes.interaction")

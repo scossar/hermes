@@ -8,6 +8,13 @@ local pending = {} -- [id] = { on_result = fn, on_error = fn }
 local event_handlers = {}
 local event_sequences = {}
 
+local function response_error(err)
+  if type(err) == "table" and type(err.code) == "number" and type(err.message) == "string" then
+    return err
+  end
+  return { code = -32603, message = "malformed JSON-RPC error response" }
+end
+
 --- Send a JSON-RPC request. on_result(result) or on)error(err) is called
 function M.request(method, params, on_result, on_error)
   next_id = next_id + 1
@@ -49,9 +56,9 @@ function M.handle_message(frame)
     end
     pending[frame.id] = nil -- done with this id; free the slot
 
-    if frame.error then
+    if frame.error ~= nil then
       if waiter.on_error then
-        waiter.on_error(frame.error)
+        waiter.on_error(response_error(frame.error))
       end
     elseif frame.result ~= nil then
       if waiter.on_result then
@@ -63,11 +70,14 @@ function M.handle_message(frame)
     return
   end
 
-  if frame.method ~= "event" then
+  if frame.method ~= "event" or type(frame.params) ~= "table" then
     return
   end
 
-  local params = frame.params or {}
+  local params = frame.params
+  if type(params.type) ~= "string" or (params.payload ~= nil and type(params.payload) ~= "table") then
+    return
+  end
   local sid = params.session_id
   local seq = params.seq
   if sid and type(seq) == "number" then

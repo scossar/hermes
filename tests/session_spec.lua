@@ -15,6 +15,7 @@ describe("hermes session lifecycle", function()
   local original_stop
   local original_notify
   local original_state_file
+  local original_state_clear
 
   before_each(function()
     reset_modules()
@@ -24,6 +25,7 @@ describe("hermes session lifecycle", function()
     original_stop = process.stop
     original_notify = vim.notify
     original_state_file = config.options.state_file
+    original_state_clear = require("hermes.state").clear
     config.options.state_file = vim.fn.tempname()
     vim.notify = function() end
   end)
@@ -36,6 +38,7 @@ describe("hermes session lifecycle", function()
     vim.notify = original_notify
     vim.fn.delete(config.options.state_file)
     config.options.state_file = original_state_file
+    require("hermes.state").clear = original_state_clear
   end)
 
   it("queues callers while one session is being created", function()
@@ -222,6 +225,32 @@ describe("hermes session lifecycle", function()
     assert.equals("hermes.nvim", request.params.source)
     assert.equals("live-id", result.id)
     assert.equals("Earlier", result.details.messages[1].text)
+  end)
+
+  it("settles startup when a stale durable session cannot be cleared", function()
+    require("hermes.state").save(config.options.state_file, "stale-id")
+    require("hermes.state").clear = function()
+      return false, "permission denied"
+    end
+    process.start = function()
+      return true
+    end
+    local requests = 0
+    rpc.request = function(method, _, _, on_error)
+      requests = requests + 1
+      assert.equals("session.resume", method)
+      if requests == 1 then
+        on_error({ code = 4007, message = "session not found" })
+      end
+    end
+
+    local startup_error
+    session.ensure_session(function(_, err)
+      startup_error = err
+    end)
+
+    assert.equals(1, requests)
+    assert.matches("could not clear stale session", startup_error.message)
   end)
 
   it("persists the durable id returned by session.create", function()

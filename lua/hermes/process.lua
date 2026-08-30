@@ -34,12 +34,16 @@ local function handle_stdout(err, data)
 
     if line ~= "" and on_message_cb then
       local ok, decoded = pcall(vim.json.decode, line)
-      if ok then
+      if ok and type(decoded) == "table" then
         -- IMPORTANT: this callback fires in libuv's "fast event context",
         -- where most vim.api calls (buffer edits, etc.) are unsafe/disallowed.
         -- vim.schedule() defers the call to Neovim's main event loop.
         vim.schedule(function()
           on_message_cb(decoded)
+        end)
+      elseif ok then
+        vim.schedule(function()
+          vim.notify("hermes: invalid JSON frame from bridge", vim.log.levels.WARN)
         end)
       else
         vim.schedule(function()

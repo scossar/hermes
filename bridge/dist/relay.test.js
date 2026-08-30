@@ -17,6 +17,22 @@ test("sends complete lines immediately after readiness", () => {
     relay.push("first\nsecond\n");
     assert.deepEqual(sent, ["first", "second"]);
 });
+test("accepts a large chunk of individually bounded messages", () => {
+    const sent = [];
+    const relay = new InputRelay((line) => sent.push(line), { maxQueuedBytes: 5 });
+    relay.markReady();
+    relay.push("1\n2\n3\n");
+    assert.deepEqual(sent, ["1", "2", "3"]);
+});
+test("preserves UTF-8 split across Buffer chunks", () => {
+    const sent = [];
+    const relay = new InputRelay((line) => sent.push(line));
+    const input = Buffer.from("A€B\n");
+    relay.markReady();
+    relay.push(input.subarray(0, 2));
+    relay.push(input.subarray(2));
+    assert.deepEqual(sent, ["A€B"]);
+});
 test("ignores blank input lines", () => {
     const sent = [];
     const relay = new InputRelay((line) => sent.push(line));
@@ -31,4 +47,8 @@ test("rejects an excessive startup queue", () => {
 test("rejects an excessive unterminated input line", () => {
     const relay = new InputRelay(() => { }, { maxQueuedBytes: 5 });
     assert.throws(() => relay.push("123456"), /input buffer exceeded/i);
+});
+test("rejects an excessive blank input line", () => {
+    const relay = new InputRelay(() => { }, { maxQueuedBytes: 5 });
+    assert.throws(() => relay.push("      \n"), /input message exceeded/i);
 });

@@ -124,7 +124,13 @@ local function request_session(my_generation)
     end
     local message = tostring(err.message or "unknown error")
     if persisted_id and err.code == 4007 and message == "session not found" then
-      durable_state.clear(config.options.state_file)
+      local cleared, clear_err = durable_state.clear(config.options.state_file)
+      if not cleared then
+        fail_waiters("could not clear stale session: " .. (clear_err or "unknown error"))
+        state = "stopping"
+        process.stop()
+        return
+      end
       request_session(my_generation)
       return
     end

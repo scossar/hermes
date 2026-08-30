@@ -43,6 +43,30 @@ describe("hermes bridge process", function()
     assert.same({}, notifications)
   end)
 
+  it("rejects decoded bridge frames that are not tables", function()
+    local system_options
+    local received = false
+    local notifications = {}
+    vim.notify = function(message)
+      table.insert(notifications, message)
+    end
+    vim.system = function(_, options)
+      system_options = options
+      return { write = function() end }
+    end
+
+    process.start({ "bridge" }, function()
+      received = true
+    end)
+    system_options.stdout(nil, "null\n")
+    vim.wait(100, function()
+      return #notifications > 0
+    end)
+
+    assert.is_false(received)
+    assert.matches("invalid JSON frame", notifications[1])
+  end)
+
   it("returns false when vim.system raises during startup", function()
     vim.system = function()
       error("ENOENT: node executable not found")

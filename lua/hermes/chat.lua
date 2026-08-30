@@ -15,6 +15,7 @@ local turn_generation = 0
 local hydrated = false
 local hydrating = false
 local pending_asks = {}
+local transitioning = false
 
 local function event_for_active_session(params)
   return running and params.session_id == active_session_id
@@ -143,6 +144,10 @@ local function ask(text, options)
     vim.notify("hermes: prompt cannot be empty", vim.log.levels.WARN)
     return
   end
+  if transitioning then
+    vim.notify("hermes: wait for the new session to finish", vim.log.levels.WARN)
+    return
+  end
   if running or hydrating then
     vim.notify("hermes: wait for the current response to finish", vim.log.levels.WARN)
     return
@@ -168,6 +173,18 @@ end
 
 function M.is_running()
   return running or hydrating
+end
+
+function M.begin_session_transition()
+  if transitioning then
+    return false
+  end
+  transitioning = true
+  return true
+end
+
+function M.end_session_transition()
+  transitioning = false
 end
 
 function M.stop()
