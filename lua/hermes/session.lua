@@ -145,14 +145,19 @@ start_session = function()
       return
     end
     local was_active = state == "active"
+    local was_starting = state == "connecting" or state == "creating" or state == "resuming"
     cancel_close_timer()
-    state = "exited"
+    if not was_starting then
+      state = "exited"
+    end
+    -- During initial connection, leave the state eligible for the request's
+    -- error callback so it can settle every caller before reset.
     rpc.fail_pending({ code = -32000, message = "bridge process exited" })
     reset()
     if was_active and disconnect_handler then
       disconnect_handler()
     end
-    if code ~= 0 or was_active then
+    if (code ~= 0 and not was_starting) or was_active then
       vim.notify("hermes: bridge disconnected", vim.log.levels.ERROR)
     end
     notify_shutdown_waiters()

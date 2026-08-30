@@ -66,18 +66,11 @@ function M.start(cmd, on_message, on_exit)
   job = vim.system(cmd, {
     stdin = true,
     stdout = handle_stdout,
-    stderr = function(_, data)
-      if data then
-        vim.schedule(function()
-          vim.notify("hermes(bridge): " .. data, vim.log.levels.WARN)
-        end)
-      end
-    end,
+    -- Session lifecycle owns user-facing connection errors. Consuming stderr
+    -- here avoids duplicate notifications for the same bridge failure.
+    stderr = function() end,
   }, function(obj)
     vim.schedule(function()
-      if obj.code ~= 0 then
-        vim.notify("hermes: bridge exited with code " .. obj.code, vim.log.levels.ERROR)
-      end
       job = nil
       if on_exit_cb then
         on_exit_cb(obj.code)
