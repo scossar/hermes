@@ -2,10 +2,10 @@
 
 A small Neovim chat client for a remote [Hermes Agent](https://github.com/NousResearch/hermes-agent) backend.
 
-Version 1 keeps one live conversation in a temporary Markdown buffer. Hermes owns the canonical session and model context; the plugin owns only the local UI and connection process.
-
-The v2 development branch adds durable resume, interactive approvals and
-clarifications, tool/reasoning rendering, and turn interruption.
+hermes.nvim keeps one live conversation in a temporary Markdown buffer. Hermes
+owns the canonical session and model context; the plugin owns only the local UI
+and connection process. Durable resume, interactive approvals and
+clarifications, tool activity, and turn interruption are supported.
 
 ## Requirements
 
@@ -32,27 +32,31 @@ Using lazy.nvim:
 ```lua
 {
   "scossar/hermes",
-  branch = "feat/v1-basic-chat", -- development branch
-  build = "cd bridge && npm ci && npm run build",
-  opts = {},
 }
 ```
 
-The compiled bridge is committed, but the build step ensures it matches the TypeScript source.
+The compiled JavaScript bridge ships with the plugin, so installation does not
+require a local build step. Public commands initialize hermes.nvim with its
+defaults automatically; `opts = {}` or an explicit `setup()` call is not
+required.
 
 ## Configuration
 
 ```lua
 require("hermes").setup({
-  bridge_cmd = {
-    "node",
-    vim.fn.stdpath("data") .. "/lazy/hermes/bridge/dist/bridge.js",
-    "http://127.0.0.1:9119",
-  },
+  state_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
 })
 ```
 
-The default bridge path is resolved from the plugin's own installation directory, so most installations can use `opts = {}`.
+The default `state_file` shown above stores the durable Hermes session ID used
+to resume the conversation after Neovim restarts. Override it if you want the
+session state stored elsewhere.
+
+The default bridge command runs the bundled bridge with Node.js and connects to
+`http://127.0.0.1:9119`. Its script path is resolved from the plugin's actual
+installation directory, so it does not depend on a particular plugin manager
+or installation path. Override `bridge_cmd` only when using a different local
+endpoint, Node.js executable, or bridge wrapper.
 
 ## Usage
 
@@ -114,10 +118,11 @@ When Hermes requests command approval or clarification, hermes.nvim uses
 `vim.ui.select()` or `vim.ui.input()`. UI plugins such as dressing.nvim can
 customize those prompts without changing hermes.nvim.
 
-Reasoning is rendered in a Markdown `<details>` block. Tool calls are shown as
-compact rows that update from started to working to complete.
+Tool calls are shown as compact rows that update from started to working to
+complete.
 
-The temporary buffer remains available until Neovim deletes it. Version 1 supports one live conversation per Neovim instance.
+The temporary buffer remains available until Neovim deletes it. hermes.nvim
+currently supports one live conversation per Neovim instance.
 
 ## Current scope
 
@@ -130,11 +135,11 @@ Implemented:
 - prompt submission
 - streamed `message.delta` rendering
 - `message.complete` fallback and turn completion
-- basic process-disconnect recovery
+- initial-connection and active-session disconnect recovery
 - durable session resume and transcript hydration
 - new-conversation control
 - approval and clarification prompts
-- reasoning and tool event rendering
+- tool event rendering
 - active-turn interruption
 
 Deferred:
