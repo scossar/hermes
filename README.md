@@ -135,9 +135,13 @@ The current durable session ID is stored under Neovim's state directory by
 default. Opening `:Hermes` after restarting Neovim resumes that Hermes session
 and hydrates the scratch buffer from Hermes's canonical transcript.
 
-When Hermes requests command approval or clarification, hermes.nvim uses
-`vim.ui.select()` or `vim.ui.input()`. UI plugins such as dressing.nvim can
-customize those prompts without changing hermes.nvim.
+When Hermes requests command approval, hermes.nvim opens a dedicated scrollable
+Markdown window. The full description and command remain available for review,
+including long multiline requests. Press a displayed choice number, or move the
+cursor to a choice and press `<Enter>`. Press `q` or `<Esc>`, or close the
+window, to deny the request. Clarification questions continue to use
+`vim.ui.select()` or `vim.ui.input()`, so UI plugins such as dressing.nvim can
+customize them.
 
 Tool calls are shown as compact rows that update from started to working to
 complete.

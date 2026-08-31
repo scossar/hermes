@@ -1,5 +1,6 @@
 local rpc = require("hermes.rpc")
 local session = require("hermes.session")
+local approval = require("hermes.approval")
 
 local M = {}
 
@@ -114,15 +115,10 @@ local function handle_approval(params)
   end
   local my_epoch = epoch
   local payload = params.payload or {}
-  local choices = type(payload.choices) == "table" and payload.choices or { "once", "session", "always", "deny" }
-  local prompt = payload.description or "Hermes requests command approval"
-  if payload.command and payload.command ~= "" then
-    prompt = string.format("%s\n%s", prompt, payload.command)
-  end
-  vim.ui.select(choices, { prompt = prompt }, function(choice)
+  approval.open(payload, function(choice)
     respond("approval.respond", sid, my_epoch, {
       request_id = payload.request_id,
-      choice = choice or "deny",
+      choice = choice,
     }, function(result)
       if result.resolved == 0 then
         vim.notify("hermes: approval was no longer pending", vim.log.levels.WARN)
@@ -150,6 +146,7 @@ end
 
 function M.invalidate()
   epoch = epoch + 1
+  approval.close()
 end
 
 return M

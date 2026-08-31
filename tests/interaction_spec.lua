@@ -1,4 +1,5 @@
 local interaction = require("hermes.interaction")
+local approval = require("hermes.approval")
 local rpc = require("hermes.rpc")
 local session = require("hermes.session")
 
@@ -20,6 +21,7 @@ describe("interactive Hermes prompts", function()
   local original_session_id
 
   before_each(function()
+    approval.close()
     original_select = vim.ui.select
     original_input = vim.ui.input
     original_request = rpc.request
@@ -33,13 +35,14 @@ describe("interactive Hermes prompts", function()
   end)
 
   after_each(function()
+    approval.close()
     vim.ui.select = original_select
     vim.ui.input = original_input
     rpc.request = original_request
     session.current_session_id = original_session_id
   end)
 
-  it("answers approval requests with a selected choice", function()
+  it("answers approval requests from the dedicated approval window", function()
     local sent
     rpc.request = function(method, params)
       sent = { method = method, params = params }
@@ -58,6 +61,10 @@ describe("interactive Hermes prompts", function()
         },
       },
     })
+
+    assert.equals("hermes://approval", vim.api.nvim_buf_get_name(0))
+    assert.matches("Remove a file", table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n"), 1, true)
+    vim.api.nvim_feedkeys("1", "x", false)
 
     assert.same({
       method = "approval.respond",
