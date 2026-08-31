@@ -103,7 +103,9 @@ vim.keymap.set("v", "<leader>z", ":HermesSendSelection<CR>", {
 ```
 
 Only the selected text is sent. The plugin does not implicitly attach the
-entire current buffer or codebase.
+entire current buffer or codebase. Selections cannot be sent from the Compose
+buffer; use `:HermesSubmit` there so the complete draft is submitted
+deliberately.
 
 The prompt and streamed response appear in an unlisted temporary Markdown buffer named `hermes://chat`.
 

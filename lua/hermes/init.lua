@@ -38,6 +38,10 @@ end
 
 function M.ask_selection()
   ensure_setup()
+  if composer.is_buffer(vim.api.nvim_get_current_buf()) then
+    vim.notify("hermes: selections from the Compose buffer cannot be sent; use :HermesSubmit", vim.log.levels.WARN)
+    return false
+  end
   chat.ask_selection(selection.current())
 end
 

@@ -74,6 +74,59 @@ describe("hermes composer", function()
     assert.equals(2, #vim.api.nvim_list_wins())
   end)
 
+  it("refuses to send a selection from the composer", function()
+    local chat = require("hermes.chat")
+    local hermes = require("hermes")
+    local selection = require("hermes.selection")
+    local original_open = chat.open
+    local original_ask_selection = chat.ask_selection
+    local original_current = selection.current
+    local original_notify = vim.notify
+    local ask_calls = 0
+    local selection_calls = 0
+    local notifications = {}
+    chat.open = function() end
+    chat.ask_selection = function()
+      ask_calls = ask_calls + 1
+      return true
+    end
+    selection.current = function()
+      selection_calls = selection_calls + 1
+      return "Selected draft text"
+    end
+    vim.notify = function(message, level)
+      table.insert(notifications, { message = message, level = level })
+    end
+
+    composer.open()
+    local draft_bufnr = vim.api.nvim_get_current_buf()
+    local draft_winid = vim.api.nvim_get_current_win()
+    local window_count = #vim.api.nvim_list_wins()
+    vim.api.nvim_buf_set_lines(draft_bufnr, 0, -1, false, { "Selected draft text", "Unselected draft text" })
+    local accepted = hermes.ask_selection()
+
+    chat.open = original_open
+    chat.ask_selection = original_ask_selection
+    selection.current = original_current
+    vim.notify = original_notify
+    assert.is_false(accepted)
+    assert.equals(0, ask_calls)
+    assert.equals(0, selection_calls)
+    assert.equals(draft_bufnr, vim.api.nvim_get_current_buf())
+    assert.equals(draft_winid, vim.api.nvim_get_current_win())
+    assert.equals(window_count, #vim.api.nvim_list_wins())
+    assert.same(
+      { "Selected draft text", "Unselected draft text" },
+      vim.api.nvim_buf_get_lines(draft_bufnr, 0, -1, false)
+    )
+    assert.equals(1, #notifications)
+    assert.equals(
+      "hermes: selections from the Compose buffer cannot be sent; use :HermesSubmit",
+      notifications[1].message
+    )
+    assert.equals(vim.log.levels.WARN, notifications[1].level)
+  end)
+
   it("submits the complete multiline draft deliberately", function()
     local chat = require("hermes.chat")
     local original_open = chat.open

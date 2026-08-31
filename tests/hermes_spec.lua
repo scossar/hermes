@@ -29,6 +29,28 @@ describe("hermes.nvim", function()
     assert.equals("test prompt", prompt)
   end)
 
+  it("preserves the existing nil return after sending a selection", function()
+    local chat = require("hermes.chat")
+    local selection = require("hermes.selection")
+    local original_ask_selection = chat.ask_selection
+    local original_current = selection.current
+    local submitted
+    chat.ask_selection = function(text)
+      submitted = text
+      return true
+    end
+    selection.current = function()
+      return "Selected text"
+    end
+
+    local result = hermes.ask_selection()
+
+    chat.ask_selection = original_ask_selection
+    selection.current = original_current
+    assert.is_nil(result)
+    assert.equals("Selected text", submitted)
+  end)
+
   it("opens the composer through the public API", function()
     local composer = require("hermes.composer")
     local original_open = composer.open

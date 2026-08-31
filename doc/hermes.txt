@@ -41,7 +41,9 @@ Override the bridge command when necessary: >lua
 :Hermes                     Open the current chat buffer without sending.
 
 :'<,'>HermesSendSelection   Send the current visual selection as a prompt.
-                            This is suitable for a visual-mode mapping.
+                            This is suitable for a visual-mode mapping. It is
+                            refused in the Compose buffer; use :HermesSubmit
+                            there to send the complete draft.
 
 :HermesStop                 Close the live Hermes session and bridge process.
 

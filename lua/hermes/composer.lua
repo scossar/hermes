@@ -6,6 +6,10 @@ local M = {}
 
 local bufnr
 
+function M.is_buffer(candidate)
+  return bufnr ~= nil and candidate == bufnr and vim.api.nvim_buf_is_valid(bufnr)
+end
+
 local function ensure_buffer()
   if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
     return bufnr
