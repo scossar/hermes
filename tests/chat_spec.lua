@@ -8,6 +8,7 @@ describe("hermes basic chat", function()
   local original_request
   local original_on_disconnect
   local notifications
+  local notification_levels
   local original_notify
 
   before_each(function()
@@ -19,8 +20,10 @@ describe("hermes basic chat", function()
     original_on_disconnect = session.on_disconnect
     original_notify = vim.notify
     notifications = {}
-    vim.notify = function(message)
+    notification_levels = {}
+    vim.notify = function(message, level)
       table.insert(notifications, message)
+      notification_levels[#notifications] = level
     end
   end)
 
@@ -189,6 +192,167 @@ describe("hermes basic chat", function()
       "",
       "Final corrected answer",
     }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+  end)
+
+  it("surfaces a recoverable turn error in the transcript", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    rpc.request = function() end
+
+    chat.ask("Long task")
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.complete",
+        session_id = "runtime-session",
+        payload = {
+          text = "Response truncated due to output length limit",
+          status = "error",
+          error = "Response truncated due to output length limit",
+          recoverable = true,
+        },
+      },
+    })
+
+    assert.same({
+      "## You",
+      "",
+      "Long task",
+      "",
+      "## Hermes",
+      "",
+      "> [!WARNING]",
+      "> **Hermes turn failed**",
+      ">",
+      "> Response truncated due to output length limit",
+      ">",
+      "> The conversation is still available. Retry the request or send a shorter follow-up.",
+    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+    assert.same({ "hermes: turn failed: Response truncated due to output length limit" }, notifications)
+    assert.equals(vim.log.levels.ERROR, notification_levels[1])
+    assert.is_false(chat.is_running())
+  end)
+
+  it("preserves streamed output when a recoverable error omits completion text", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    rpc.request = function() end
+
+    chat.ask("Long task")
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.delta",
+        session_id = "runtime-session",
+        payload = { text = "Useful partial result" },
+      },
+    })
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.complete",
+        session_id = "runtime-session",
+        payload = {
+          status = "error",
+          error = "stream failed",
+          partial = true,
+          recoverable = true,
+        },
+      },
+    })
+
+    assert.same({
+      "## You",
+      "",
+      "Long task",
+      "",
+      "## Hermes",
+      "",
+      "Useful partial result",
+      "",
+      "> [!WARNING]",
+      "> **Hermes turn failed**",
+      ">",
+      "> stream failed",
+      ">",
+      "> The conversation is still available. Retry the request or send a shorter follow-up.",
+    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+    assert.is_false(chat.is_running())
+  end)
+
+  it("uses authoritative partial completion text before the error warning", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    rpc.request = function() end
+
+    chat.ask("Long task")
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.delta",
+        session_id = "runtime-session",
+        payload = { text = "Draft partial" },
+      },
+    })
+    rpc.handle_message({
+      method = "event",
+      params = {
+        type = "message.complete",
+        session_id = "runtime-session",
+        payload = {
+          text = "Authoritative partial",
+          status = "error",
+          error = "provider stream failed",
+          partial = true,
+        },
+      },
+    })
+
+    assert.same({
+      "## You",
+      "",
+      "Long task",
+      "",
+      "## Hermes",
+      "",
+      "Authoritative partial",
+      "",
+      "> [!WARNING]",
+      "> **Hermes turn failed**",
+      ">",
+      "> provider stream failed",
+    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+    assert.is_false(chat.is_running())
+  end)
+
+  it("finishes safely when error fields are malformed", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    rpc.request = function() end
+
+    chat.ask("Long task")
+    local ok = pcall(rpc.handle_message, {
+      method = "event",
+      params = {
+        type = "message.complete",
+        session_id = "runtime-session",
+        payload = {
+          text = { "not text" },
+          status = "error",
+          error = "",
+          partial = true,
+        },
+      },
+    })
+
+    assert.is_true(ok)
+    local transcript = table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
+    assert.matches("The turn failed without an error message", transcript)
+    assert.is_false(chat.is_running())
   end)
 
   it("rejects a second prompt while session creation is pending", function()

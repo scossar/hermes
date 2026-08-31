@@ -25,6 +25,29 @@ local function append_status(text)
   buffer.append("\n\n" .. text)
 end
 
+local function nonempty_string(value)
+  if type(value) ~= "string" or value == "" then
+    return nil
+  end
+  return value
+end
+
+local function failed_turn_text(payload, message)
+  local lines = {
+    "> [!WARNING]",
+    "> **Hermes turn failed**",
+    ">",
+    "> " .. message:gsub("\n", "\n> "),
+  }
+  if payload.recoverable then
+    vim.list_extend(lines, {
+      ">",
+      "> The conversation is still available. Retry the request or send a shorter follow-up.",
+    })
+  end
+  return table.concat(lines, "\n")
+end
+
 local function finish_turn(options)
   events.end_turn()
   buffer.finish_assistant(options or { delimiter = delimit_response })
@@ -46,7 +69,20 @@ function M.setup()
       return
     end
     local payload = params.payload or {}
-    if interrupting and (payload.status == "interrupted" or not (payload.text and payload.text ~= "")) then
+    if payload.status == "error" then
+      local completion_text = nonempty_string(payload.text)
+      local message = nonempty_string(payload.error) or completion_text or "The turn failed without an error message."
+      local warning = failed_turn_text(payload, message)
+      if payload.partial then
+        if completion_text and completion_text ~= message then
+          buffer.replace_assistant(completion_text)
+        end
+        append_status(warning)
+      else
+        buffer.replace_assistant(warning)
+      end
+      vim.notify("hermes: turn failed: " .. message, vim.log.levels.ERROR)
+    elseif interrupting and (payload.status == "interrupted" or not (payload.text and payload.text ~= "")) then
       append_status("_Interrupted._")
     elseif payload.text and payload.text ~= "" then
       buffer.replace_assistant(payload.text)
