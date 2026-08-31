@@ -29,6 +29,20 @@ describe("hermes.nvim", function()
     assert.equals("test prompt", prompt)
   end)
 
+  it("opens the composer through the public API", function()
+    local composer = require("hermes.composer")
+    local original_open = composer.open
+    local open_calls = 0
+    composer.open = function()
+      open_calls = open_calls + 1
+    end
+
+    hermes.compose()
+
+    composer.open = original_open
+    assert.equals(1, open_calls)
+  end)
+
   it("preserves the conversation when a new session cannot be created", function()
     local chat = require("hermes.chat")
     local session = require("hermes.session")

@@ -4,6 +4,7 @@ local session = require("hermes.session")
 local selection = require("hermes.selection")
 local interaction = require("hermes.interaction")
 local events = require("hermes.events")
+local composer = require("hermes.composer")
 
 local M = {}
 
@@ -43,6 +44,11 @@ end
 function M.open()
   ensure_setup()
   chat.open()
+end
+
+function M.compose()
+  ensure_setup()
+  composer.open()
 end
 
 function M.stop()

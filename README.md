@@ -45,6 +45,7 @@ required.
 ```lua
 require("hermes").setup({
   state_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
+  composer_height = 10,
 })
 ```
 
@@ -65,6 +66,26 @@ Send a prompt:
 ```vim
 :Hermes Explain WebSockets in one paragraph
 ```
+
+Draft a multiline prompt in a separate Markdown buffer:
+
+```vim
+:HermesCompose
+```
+
+This opens a ten-line horizontal composer beneath the transcript, leaving the
+chat response visible and independently scrollable. Edit normally with Vim
+motions, then deliberately submit the complete draft from the composer with:
+
+```vim
+:HermesSubmit
+```
+
+There is no default submit mapping. A successful submission closes the
+composer and returns focus to the transcript. If the prompt is empty or a turn
+is already active, submission is refused and the draft remains intact. `:close`
+hides an unsubmitted composer without discarding it; `:HermesCompose` returns
+to that draft. Configure the split height with `composer_height`.
 
 Send visually selected text by selecting it and running:
 
@@ -133,6 +154,7 @@ Implemented:
 - reliable request queueing while waiting for `gateway.ready`
 - one live Hermes session tagged `hermes.nvim`
 - prompt submission
+- multiline prompt composition in a separate Markdown buffer
 - streamed `message.delta` rendering
 - `message.complete` fallback and turn completion
 - initial-connection and active-session disconnect recovery
@@ -145,7 +167,7 @@ Implemented:
 Deferred:
 
 - multiple simultaneous conversations
-- richer prompt composition and buffer-context attachment
+- buffer-context attachment
 
 ## Development
 

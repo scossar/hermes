@@ -16,6 +16,16 @@ local hydrated = false
 local hydrating = false
 local pending_asks = {}
 local transitioning = false
+local active_options = nil
+
+local function settle_acceptance(options, accepted)
+  if not options or not options.on_accept then
+    return
+  end
+  local callback = options.on_accept
+  options.on_accept = nil
+  callback(accepted)
+end
 
 local function event_for_active_session(params)
   return running and params.session_id == active_session_id
@@ -54,6 +64,7 @@ local function finish_turn(options)
   running = false
   interrupting = false
   active_session_id = nil
+  active_options = nil
 end
 
 function M.setup()
@@ -61,6 +72,7 @@ function M.setup()
     if not event_for_active_session(params) or interrupting then
       return
     end
+    settle_acceptance(active_options, true)
     buffer.append(tostring((params.payload or {}).text or ""))
   end)
 
@@ -68,6 +80,7 @@ function M.setup()
     if not event_for_active_session(params) then
       return
     end
+    settle_acceptance(active_options, true)
     local payload = params.payload or {}
     if payload.status == "error" then
       local completion_text = nonempty_string(payload.text)
@@ -97,6 +110,7 @@ function M.setup()
     if not running then
       return
     end
+    settle_acceptance(active_options, false)
     append_status("_Connection lost before the response completed._")
     finish_turn()
   end)
@@ -112,6 +126,7 @@ local function submit(text, options)
   turn_generation = turn_generation + 1
   local my_generation = turn_generation
   delimit_response = options.delimiter == true
+  active_options = options
   events.begin_turn()
 
   if not options.selection then
@@ -124,15 +139,19 @@ local function submit(text, options)
       return
     end
     if not session_id then
+      settle_acceptance(options, false)
       append_status(string.format("_Could not create a Hermes session: %s_", (err and err.message) or "unknown error"))
       finish_turn()
       return
     end
     active_session_id = session_id
-    rpc.request("prompt.submit", { session_id = session_id, text = text }, nil, function(request_err)
+    rpc.request("prompt.submit", { session_id = session_id, text = text }, function()
+      settle_acceptance(options, true)
+    end, function(request_err)
       if my_generation ~= turn_generation or not running then
         return
       end
+      settle_acceptance(options, false)
       append_status(string.format("_Request failed: %s_", request_err.message or "unknown error"))
       finish_turn()
     end)
@@ -160,6 +179,9 @@ local function ensure_hydrated(done)
     hydrating = false
     if err then
       buffer.append_block({ string.format("_Could not create a Hermes session: %s_", err.message or "unknown error") })
+      for _, item in ipairs(pending_asks) do
+        settle_acceptance(item.options, false)
+      end
       pending_asks = {}
       vim.notify("hermes: " .. (err.message or "could not open session"), vim.log.levels.ERROR)
       return
@@ -175,31 +197,35 @@ end
 local function ask(text, options)
   M.setup()
   options = options or {}
-  text = vim.trim(text or "")
-  if text == "" then
+  text = text or ""
+  if vim.trim(text) == "" then
     vim.notify("hermes: prompt cannot be empty", vim.log.levels.WARN)
-    return
+    return false
+  end
+  if not options.preserve_whitespace then
+    text = vim.trim(text)
   end
   if transitioning then
     vim.notify("hermes: wait for the new session to finish", vim.log.levels.WARN)
-    return
+    return false
   end
   if running or hydrating then
     vim.notify("hermes: wait for the current response to finish", vim.log.levels.WARN)
-    return
+    return false
   end
 
   buffer.show()
   table.insert(pending_asks, { text = text, options = options })
   ensure_hydrated(flush_pending)
+  return true
 end
 
-function M.ask(text)
-  ask(text)
+function M.ask(text, options)
+  return ask(text, options)
 end
 
 function M.ask_selection(text)
-  ask(text, { selection = true, delimiter = true })
+  return ask(text, { selection = true, delimiter = true })
 end
 
 function M.open()
@@ -226,8 +252,12 @@ end
 function M.stop()
   interaction.invalidate()
   turn_generation = turn_generation + 1
+  for _, item in ipairs(pending_asks) do
+    settle_acceptance(item.options, false)
+  end
   pending_asks = {}
   if running then
+    settle_acceptance(active_options, false)
     append_status("_Stopped before the response completed._")
     finish_turn()
   end

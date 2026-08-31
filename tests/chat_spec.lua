@@ -46,7 +46,7 @@ describe("hermes basic chat", function()
       submitted = { method = method, params = params }
     end
 
-    chat.ask("Hello")
+    assert.is_true(chat.ask("Hello"))
     rpc.handle_message({
       method = "event",
       params = {
@@ -94,6 +94,20 @@ describe("hermes basic chat", function()
       "Hi there",
     }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
     assert.is_false(chat.is_running())
+  end)
+
+  it("keeps trimming direct prompts", function()
+    session.ensure_session = function(cb)
+      cb("runtime-session")
+    end
+    local submitted
+    rpc.request = function(_, params)
+      submitted = params.text
+    end
+
+    assert.is_true(chat.ask("  indented prompt  \n"))
+
+    assert.equals("indented prompt", submitted)
   end)
 
   it("uses complete text when the server emitted no deltas", function()
@@ -358,8 +372,8 @@ describe("hermes basic chat", function()
   it("rejects a second prompt while session creation is pending", function()
     session.ensure_session = function() end
 
-    chat.ask("First")
-    chat.ask("Second")
+    assert.is_true(chat.ask("First"))
+    assert.is_false(chat.ask("Second"))
 
     assert.is_true(chat.is_running())
     assert.matches("wait for the current response", notifications[#notifications])
