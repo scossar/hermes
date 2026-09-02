@@ -1,0 +1,80 @@
+[
+  {
+    "name": "queued startup persists then hydrates before submit",
+    "steps": [
+      { "event": { "type": "prompt.submitted", "submission_id": "s1", "text": "hello", "presentation": {} }, "accepted": true, "effects": ["projection.show", "bridge.start"] },
+      { "event": { "type": "bridge.started", "bridge_generation": 1 }, "accepted": true, "effects": ["session_store.load"] },
+      { "event": { "type": "session_store.loaded", "bridge_generation": 1, "connection_generation": 1 }, "accepted": true, "effects": ["rpc.request"] },
+      { "event": { "type": "session.activated", "bridge_generation": 1, "connection_generation": 1, "session_generation": 1, "operation_id": 1, "live_id": "live-1", "durable_id": "durable-1", "messages": [] }, "accepted": true, "effects": ["session_store.save"] },
+      { "event": { "type": "session_store.saved", "operation_id": 1, "session_generation": 1, "activation": true }, "accepted": true, "effects": ["projection.hydrate"] },
+      { "event": { "type": "projection.hydrated", "projection_generation": 1, "session_generation": 1, "session_id": "live-1" }, "accepted": true, "effects": ["projection.append_user", "projection.begin_assistant", "agent_events.begin_turn", "rpc.request"] }
+    ],
+    "model": { "connection": { "phase": "ready" }, "session": { "phase": "active", "live_id": "live-1" }, "projection": { "phase": "ready" }, "turn": { "phase": "submitting" } }
+  },
+  {
+    "name": "stale persistence and hydration callbacks are rejected",
+    "steps": [
+      { "event": { "type": "client.open_requested" }, "accepted": true, "effects": ["bridge.start", "projection.show"] },
+      { "event": { "type": "bridge.started", "bridge_generation": 1 }, "accepted": true, "effects": ["session_store.load"] },
+      { "event": { "type": "session_store.loaded", "bridge_generation": 1, "connection_generation": 1 }, "accepted": true, "effects": ["rpc.request"] },
+      { "event": { "type": "session.activated", "bridge_generation": 1, "connection_generation": 1, "session_generation": 1, "operation_id": 1, "live_id": "live-1", "durable_id": "durable-1" }, "accepted": true, "effects": ["session_store.save"] },
+      { "event": { "type": "session_store.saved", "operation_id": 99, "session_generation": 1, "activation": true }, "accepted": false, "effects": [] },
+      { "event": { "type": "session_store.saved", "operation_id": 1, "session_generation": 1, "activation": true }, "accepted": true, "effects": ["projection.hydrate"] },
+      { "event": { "type": "projection.hydrated", "projection_generation": 0, "session_generation": 1, "session_id": "live-1" }, "accepted": false, "effects": [] },
+      { "event": { "type": "projection.hydrated", "projection_generation": 1, "session_generation": 1, "session_id": "live-1" }, "accepted": true, "effects": [] }
+    ],
+    "model": { "connection": { "phase": "ready" }, "projection": { "phase": "ready" } }
+  },
+  {
+    "name": "prompt stream and terminal completion are ordered",
+    "prefix": "ready",
+    "steps": [
+      { "event": { "type": "prompt.submitted", "submission_id": "s1", "text": "hello" }, "accepted": true, "effects": ["projection.append_user", "projection.begin_assistant", "agent_events.begin_turn", "rpc.request"] },
+      { "event": { "type": "message.delta", "session_id": "live-1", "sequence": 1, "text": "hi" }, "accepted": true, "effects": ["submission.settle", "projection.append_delta"] },
+      { "event": { "type": "message.completed", "session_id": "live-1", "sequence": 2, "status": "complete", "text": "hi" }, "accepted": true, "effects": ["projection.finish", "agent_events.end_turn"] }
+    ],
+    "model": { "turn": { "phase": "idle" }, "session": { "last_sequence": 2 } }
+  },
+  {
+    "name": "disconnect and reconnect reset sequence watermark",
+    "prefix": "ready",
+    "steps": [
+      { "event": { "type": "protocol.unknown", "session_id": "live-1", "sequence": 8, "wire_type": "future" }, "accepted": true, "effects": [] },
+      { "event": { "type": "bridge.exited", "bridge_generation": 1, "connection_generation": 1 }, "accepted": true, "effects": ["interaction.invalidate", "notify"] },
+      { "event": { "type": "client.open_requested" }, "accepted": true, "effects": ["bridge.start", "projection.show"] }
+    ],
+    "model": { "bridge": { "phase": "starting", "generation": 2 }, "session": { "phase": "none", "last_sequence": 0 } }
+  },
+  {
+    "name": "interrupt failure permits retry",
+    "prefix": "running",
+    "steps": [
+      { "event": { "type": "client.interrupt_requested" }, "accepted": true, "effects": ["rpc.request", "interaction.invalidate"] },
+      { "event": { "type": "message.delta", "session_id": "live-1", "sequence": 1, "text": "late" }, "accepted": true, "effects": ["projection.append_delta"] },
+      { "event": { "type": "operation.failed", "method": "session.interrupt", "operation_id": 3, "connection_generation": 1, "session_generation": 1, "turn_generation": 1, "error": { "message": "temporary" } }, "accepted": true, "effects": ["notify"] },
+      { "event": { "type": "client.interrupt_requested" }, "accepted": true, "effects": ["rpc.request", "interaction.invalidate"] }
+    ],
+    "model": { "turn": { "phase": "interrupting" } }
+  },
+  {
+    "name": "replacement persistence failure restores old session and closes new",
+    "prefix": "ready",
+    "steps": [
+      { "event": { "type": "client.new_session_requested" }, "accepted": true, "effects": ["rpc.request"] },
+      { "event": { "type": "session.replacement_created", "operation_id": 2, "connection_generation": 1, "session_generation": 2, "live_id": "live-2", "durable_id": "durable-2" }, "accepted": true, "effects": ["session_store.save"] },
+      { "event": { "type": "session_store.save_failed", "operation_id": 2, "session_generation": 2, "error": "denied" }, "accepted": true, "effects": ["notify", "session.close_detached", "session_transition.settle"] }
+    ],
+    "model": { "session": { "phase": "active", "live_id": "live-1", "durable_id": "durable-1" } }
+  },
+  {
+    "name": "blocking interaction answer is correlated",
+    "prefix": "ready",
+    "steps": [
+      { "event": { "type": "clarification.requested", "session_id": "live-1", "sequence": 1, "request_id": "c1", "request": { "request_id": "c1", "questions": [{ "qid": "q1" }, { "qid": "q2" }] } }, "accepted": true, "effects": ["interaction.show_clarification"] },
+      { "event": { "type": "clarification.answered", "interaction_generation": 9, "request_id": "c1", "question_id": "q1", "answer": "one" }, "accepted": false, "effects": [] },
+      { "event": { "type": "clarification.answered", "interaction_generation": 1, "request_id": "c1", "question_id": "q1", "answer": "one" }, "accepted": true, "effects": ["rpc.request"] },
+      { "event": { "type": "operation.succeeded", "operation_id": 2, "connection_generation": 1, "session_generation": 1, "interaction_generation": 1, "result": { "status": "pending" } }, "accepted": true, "effects": ["interaction.show_clarification"] }
+    ],
+    "model": { "interaction": { "phase": "clarification", "request_id": "c1", "question_index": 2 } }
+  }
+]

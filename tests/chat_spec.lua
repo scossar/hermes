@@ -1,485 +1,215 @@
 local buffer = require("hermes.buffer")
 local chat = require("hermes.chat")
+local process = require("hermes.process")
 local rpc = require("hermes.rpc")
-local session = require("hermes.session")
+local state = require("hermes.state")
+
+local function transcript()
+  return table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
+end
 
 describe("hermes basic chat", function()
-  local original_ensure_session
-  local original_request
-  local original_on_disconnect
+  local original = {}
+  local requests
+  local receiver
+  local on_exit
   local notifications
-  local notification_levels
-  local original_notify
 
   before_each(function()
-    buffer.reset()
-    chat.reset()
-    chat.setup()
-    original_ensure_session = session.ensure_session
-    original_request = rpc.request
-    original_on_disconnect = session.on_disconnect
-    original_notify = vim.notify
+    original.start = process.start
+    original.stop = process.stop
+    original.request = rpc.request
+    original.on_event = rpc.on_event
+    original.load = state.load
+    original.save = state.save
+    original.notify = vim.notify
+    requests = {}
     notifications = {}
-    notification_levels = {}
-    vim.notify = function(message, level)
-      table.insert(notifications, message)
-      notification_levels[#notifications] = level
+    process.start = function(_, _, exit_callback)
+      on_exit = exit_callback
+      return true
     end
+    process.stop = function() end
+    rpc.on_event = function(handler)
+      receiver = handler
+    end
+    rpc.request = function(method, params, success, failure)
+      table.insert(requests, { method = method, params = params, success = success, failure = failure })
+    end
+    state.load = function()
+      return nil
+    end
+    state.save = function()
+      return true
+    end
+    vim.notify = function(message, level)
+      table.insert(notifications, { message = message, level = level })
+    end
+    chat.reset()
+    buffer.reset()
   end)
 
   after_each(function()
-    session.ensure_session = original_ensure_session
-    rpc.request = original_request
-    session.on_disconnect = original_on_disconnect
-    vim.notify = original_notify
+    process.start = original.start
+    process.stop = original.stop
+    rpc.request = original.request
+    rpc.on_event = original.on_event
+    state.load = original.load
+    state.save = original.save
+    vim.notify = original.notify
     chat.reset()
     buffer.reset()
   end)
 
+  local function activate(messages)
+    assert.equals("session.create", requests[1].method)
+    requests[1].success({ session_id = "live-1", stored_session_id = "durable-1", messages = messages or {} })
+  end
+
+  local function begin(prompt, options)
+    assert.is_true(chat.ask(prompt, options))
+    activate()
+    assert.equals("prompt.submit", requests[2].method)
+  end
+
+  local function event(kind, seq, payload, sid)
+    receiver({ type = kind, session_id = sid or "live-1", seq = seq, payload = payload or {} })
+  end
+
   it("submits a prompt and streams only events from its session", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-
-    local submitted
-    rpc.request = function(method, params)
-      submitted = { method = method, params = params }
-    end
-
-    assert.is_true(chat.ask("Hello"))
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.delta",
-        session_id = "other-session",
-        payload = { text = "ignore me" },
-      },
-    })
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.delta",
-        session_id = "runtime-session",
-        payload = { text = "Hi" },
-      },
-    })
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.delta",
-        session_id = "runtime-session",
-        payload = { text = " there" },
-      },
-    })
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = { text = "Hi there", status = "complete" },
-      },
-    })
-
-    assert.same({
-      method = "prompt.submit",
-      params = { session_id = "runtime-session", text = "Hello" },
-    }, submitted)
-    assert.same({
-      "## You",
-      "",
-      "Hello",
-      "",
-      "## Hermes",
-      "",
-      "Hi there",
-    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+    begin("Hello")
+    event("message.delta", 1, { text = "ignore" }, "other")
+    event("message.delta", 2, { text = "Hi" })
+    event("message.complete", 3, { text = "Hi there", status = "complete" })
+    assert.same({ session_id = "live-1", text = "Hello" }, requests[2].params)
+    assert.matches("Hi there", transcript())
+    assert.is_nil(transcript():match("ignore"))
     assert.is_false(chat.is_running())
   end)
 
   it("keeps trimming direct prompts", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    local submitted
-    rpc.request = function(_, params)
-      submitted = params.text
-    end
-
-    assert.is_true(chat.ask("  indented prompt  \n"))
-
-    assert.equals("indented prompt", submitted)
+    begin("  indented prompt  \n")
+    assert.equals("indented prompt", requests[2].params.text)
   end)
 
   it("uses complete text when the server emitted no deltas", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Hello")
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = { text = "Complete response", status = "complete" },
-      },
-    })
-
-    assert.same({
-      "## You",
-      "",
-      "Hello",
-      "",
-      "## Hermes",
-      "",
-      "Complete response",
-    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+    begin("Hello")
+    event("message.complete", 1, { text = "Complete response", status = "complete" })
+    assert.matches("Complete response", transcript())
   end)
 
   it("sends selected text without duplicating it and delimits the response", function()
     local bufnr = buffer.ensure_buffer()
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Selected prompt" })
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    local submitted
-    rpc.request = function(method, params)
-      submitted = { method = method, params = params }
-    end
-
-    chat.ask_selection("Selected prompt")
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = { text = "Selected response", status = "complete" },
-      },
-    })
-
-    assert.same({
-      method = "prompt.submit",
-      params = { session_id = "runtime-session", text = "Selected prompt" },
-    }, submitted)
-    assert.same({
-      "Selected prompt",
-      "",
-      "## Hermes",
-      "",
-      "Selected response",
-      "",
-      "---",
-    }, vim.api.nvim_buf_get_lines(bufnr, 0, -1, false))
+    assert.is_true(chat.ask_selection("Selected prompt"))
+    activate()
+    event("message.complete", 1, { text = "Selected response", status = "complete" })
+    assert.equals(1, select(2, transcript():gsub("Selected prompt", "")))
+    assert.matches("%-%-%-", transcript())
   end)
 
   it("replaces streamed text with the authoritative completed response", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Hello")
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.delta",
-        session_id = "runtime-session",
-        payload = { text = "Draft answer" },
-      },
-    })
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = { text = "Final corrected answer", status = "complete" },
-      },
-    })
-
-    assert.same({
-      "## You",
-      "",
-      "Hello",
-      "",
-      "## Hermes",
-      "",
-      "Final corrected answer",
-    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+    begin("Hello")
+    event("message.delta", 1, { text = "Draft answer" })
+    event("message.complete", 2, { text = "Final corrected answer", status = "complete" })
+    assert.matches("Final corrected answer", transcript())
+    assert.is_nil(transcript():match("Draft answer"))
   end)
 
   it("surfaces a recoverable turn error in the transcript", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Long task")
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = {
-          text = "Response truncated due to output length limit",
-          status = "error",
-          error = "Response truncated due to output length limit",
-          recoverable = true,
-        },
-      },
+    begin("Long task")
+    event("message.complete", 1, {
+      status = "error",
+      error = "Response truncated due to output length limit",
+      recoverable = true,
     })
-
-    assert.same({
-      "## You",
-      "",
-      "Long task",
-      "",
-      "## Hermes",
-      "",
-      "> [!WARNING]",
-      "> **Hermes turn failed**",
-      ">",
-      "> Response truncated due to output length limit",
-      ">",
-      "> The conversation is still available. Retry the request or send a shorter follow-up.",
-    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
-    assert.same({ "hermes: turn failed: Response truncated due to output length limit" }, notifications)
-    assert.equals(vim.log.levels.ERROR, notification_levels[1])
-    assert.is_false(chat.is_running())
+    assert.matches("Hermes turn failed", transcript())
+    assert.matches("conversation is still available", transcript())
+    assert.equals(vim.log.levels.ERROR, notifications[#notifications].level)
   end)
 
   it("preserves streamed output when a recoverable error omits completion text", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Long task")
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.delta",
-        session_id = "runtime-session",
-        payload = { text = "Useful partial result" },
-      },
-    })
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = {
-          status = "error",
-          error = "stream failed",
-          partial = true,
-          recoverable = true,
-        },
-      },
-    })
-
-    assert.same({
-      "## You",
-      "",
-      "Long task",
-      "",
-      "## Hermes",
-      "",
-      "Useful partial result",
-      "",
-      "> [!WARNING]",
-      "> **Hermes turn failed**",
-      ">",
-      "> stream failed",
-      ">",
-      "> The conversation is still available. Retry the request or send a shorter follow-up.",
-    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
-    assert.is_false(chat.is_running())
+    begin("Long task")
+    event("message.delta", 1, { text = "Useful partial result" })
+    event("message.complete", 2, { status = "error", error = "stream failed", partial = true, recoverable = true })
+    assert.matches("Useful partial result", transcript())
+    assert.matches("stream failed", transcript())
   end)
 
   it("uses authoritative partial completion text before the error warning", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Long task")
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.delta",
-        session_id = "runtime-session",
-        payload = { text = "Draft partial" },
-      },
-    })
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = {
-          text = "Authoritative partial",
-          status = "error",
-          error = "provider stream failed",
-          partial = true,
-        },
-      },
-    })
-
-    assert.same({
-      "## You",
-      "",
-      "Long task",
-      "",
-      "## Hermes",
-      "",
-      "Authoritative partial",
-      "",
-      "> [!WARNING]",
-      "> **Hermes turn failed**",
-      ">",
-      "> provider stream failed",
-    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
-    assert.is_false(chat.is_running())
+    begin("Long task")
+    event("message.delta", 1, { text = "Draft partial" })
+    event(
+      "message.complete",
+      2,
+      { text = "Authoritative partial", status = "error", error = "provider failed", partial = true }
+    )
+    assert.matches("Authoritative partial", transcript())
+    assert.is_nil(transcript():match("Draft partial"))
   end)
 
   it("finishes safely when error fields are malformed", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Long task")
-    local ok = pcall(rpc.handle_message, {
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = {
-          text = { "not text" },
-          status = "error",
-          error = "",
-          partial = true,
-        },
-      },
-    })
-
-    assert.is_true(ok)
-    local transcript = table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
-    assert.matches("The turn failed without an error message", transcript)
+    begin("Long task")
+    assert.is_true(
+      pcall(event, "message.complete", 1, { text = { "bad" }, status = "error", error = "", partial = true })
+    )
+    assert.matches("without an error message", transcript())
     assert.is_false(chat.is_running())
   end)
 
   it("rejects a second prompt while session creation is pending", function()
-    session.ensure_session = function() end
-
     assert.is_true(chat.ask("First"))
     assert.is_false(chat.ask("Second"))
-
     assert.is_true(chat.is_running())
-    assert.matches("wait for the current response", notifications[#notifications])
-    assert.same({ "" }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
   end)
 
   it("recovers when the bridge disconnects during a response", function()
-    local disconnect
-    session.on_disconnect = function(cb)
-      disconnect = cb
-    end
-    chat.setup()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Hello")
-    disconnect()
-
+    begin("Hello")
+    on_exit(1)
     assert.is_false(chat.is_running())
-    assert.matches(
-      "Connection lost",
-      table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
-    )
+    assert.matches("Connection lost", transcript())
   end)
 
   it("can be stopped during an active response", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    rpc.request = function() end
-
-    chat.ask("Hello")
+    begin("Hello")
     chat.stop()
-
     assert.is_false(chat.is_running())
-    assert.matches("Stopped", table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n"))
+    assert.matches("Stopped", transcript())
   end)
 
   it("interrupts an active turn without closing the session", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session")
-    end
-    local requests = {}
-    rpc.request = function(method, params, on_result)
-      table.insert(requests, { method = method, params = params })
-      if method == "session.interrupt" then
-        on_result({ status = "interrupted" })
-      end
-    end
-
-    chat.ask("Long task")
+    begin("Long task")
+    requests[2].success({ accepted = true })
     chat.interrupt()
-
-    assert.equals("session.interrupt", requests[2].method)
-    assert.equals("runtime-session", requests[2].params.session_id)
+    assert.equals("session.interrupt", requests[3].method)
+    requests[3].success({ status = "interrupted" })
     assert.is_true(chat.is_running())
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "message.complete",
-        session_id = "runtime-session",
-        payload = { status = "interrupted" },
-      },
-    })
+    event("message.complete", 1, { status = "interrupted" })
     assert.is_false(chat.is_running())
-    assert.matches("Interrupted", table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n"))
+    assert.matches("Interrupted", transcript())
   end)
 
   it("recovers when session creation fails", function()
-    session.ensure_session = function(cb)
-      cb(nil, { message = "connection failed" })
-    end
-
-    chat.ask("Hello")
-
+    assert.is_true(chat.ask("Hello"))
+    requests[1].failure({ message = "connection failed" })
     assert.is_false(chat.is_running())
-    assert.matches(
-      "connection failed",
-      table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
-    )
+    assert.matches("connection failed", transcript())
   end)
 
   it("hydrates the scratch buffer when opening a resumed session", function()
-    session.ensure_session = function(cb)
-      cb("runtime-session", nil, {
-        messages = {
-          { role = "user", text = "Earlier question" },
-          { role = "assistant", text = "Earlier answer" },
-        },
-      })
+    state.load = function()
+      return "durable-1"
     end
-
     chat.open()
-
-    assert.same({
-      "## You",
-      "",
-      "Earlier question",
-      "",
-      "## Hermes",
-      "",
-      "Earlier answer",
-      "",
-      "---",
-    }, vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false))
+    requests[1].success({
+      session_id = "live-1",
+      stored_session_id = "durable-1",
+      messages = {
+        { role = "user", text = "Earlier question" },
+        { role = "assistant", text = "Earlier answer" },
+      },
+    })
+    assert.matches("Earlier question", transcript())
+    assert.matches("Earlier answer", transcript())
   end)
 end)

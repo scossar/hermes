@@ -15,6 +15,21 @@ describe("JSON-RPC dispatch", function()
     process.send = original_send
   end)
 
+  it("forwards all protocol events through one general receiver", function()
+    local received
+    rpc.on_event(function(params)
+      received = params
+    end)
+
+    rpc.handle_message({
+      method = "event",
+      params = { type = "message.delta", session_id = "live-1", seq = 1, payload = { text = "Hi" } },
+    })
+
+    assert.equals("message.delta", received.type)
+    assert.equals("Hi", received.payload.text)
+  end)
+
   it("ignores events whose params are not an object", function()
     local handled = false
     rpc.on_event("message.delta", function()
@@ -79,5 +94,27 @@ describe("JSON-RPC dispatch", function()
     rpc.handle_message({ id = request_id, result = true })
 
     assert.is_true(received_result)
+  end)
+
+  it("does not suppress sequence duplicates before the general receiver", function()
+    local count = 0
+    rpc.on_event(function()
+      count = count + 1
+    end)
+    local frame = { method = "event", params = { type = "message.delta", session_id = "live", seq = 1, payload = {} } }
+    rpc.handle_message(frame)
+    rpc.handle_message(frame)
+    assert.equals(2, count)
+  end)
+
+  it("retains sequence suppression for legacy typed handlers", function()
+    local count = 0
+    rpc.on_event("message.delta", function()
+      count = count + 1
+    end)
+    local frame = { method = "event", params = { type = "message.delta", session_id = "live", seq = 1, payload = {} } }
+    rpc.handle_message(frame)
+    rpc.handle_message(frame)
+    assert.equals(1, count)
   end)
 end)

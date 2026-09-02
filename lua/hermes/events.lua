@@ -92,4 +92,19 @@ function M.end_turn()
   active = false
 end
 
+-- Passive projection entry point used by the application runtime. Wire-event
+-- subscription remains below only as a compatibility adapter for older users.
+function M.render(activity_type, payload)
+  local params = { session_id = session.current_session_id(), payload = payload or {} }
+  if activity_type == "reasoning.delta" or activity_type == "thinking.delta" then
+    reasoning_event(params)
+  elseif activity_type == "tool.start" then
+    tool_event("started")(params)
+  elseif activity_type == "tool.progress" then
+    tool_event("working")(params)
+  elseif activity_type == "tool.complete" then
+    tool_event("complete")(params)
+  end
+end
+
 return M

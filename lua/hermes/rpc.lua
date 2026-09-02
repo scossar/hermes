@@ -6,6 +6,7 @@ local M = {}
 local next_id = 0
 local pending = {} -- [id] = { on_result = fn, on_error = fn }
 local event_handlers = {}
+local general_event_handler = nil
 local event_sequences = {}
 
 local function response_error(err)
@@ -30,9 +31,13 @@ function M.request(method, params, on_result, on_error)
   })
 end
 
---- Register a handler for a gateway event type, e.g. "message.delta".
---- Only one handler per type for now -- last registration wins.
+--- Register the one general gateway event receiver, or a legacy handler for a
+--- specific wire event type.
 function M.on_event(event_type, handler)
+  if type(event_type) == "function" and handler == nil then
+    general_event_handler = event_type
+    return
+  end
   event_handlers[event_type] = handler
 end
 
@@ -76,6 +81,10 @@ function M.handle_message(frame)
 
   local params = frame.params
   if type(params.type) ~= "string" or (params.payload ~= nil and type(params.payload) ~= "table") then
+    return
+  end
+  if general_event_handler then
+    general_event_handler(params)
     return
   end
   local sid = params.session_id

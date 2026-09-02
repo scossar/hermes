@@ -1,9 +1,6 @@
 local config = require("hermes.config")
 local chat = require("hermes.chat")
-local session = require("hermes.session")
 local selection = require("hermes.selection")
-local interaction = require("hermes.interaction")
-local events = require("hermes.events")
 local composer = require("hermes.composer")
 
 local M = {}
@@ -16,8 +13,6 @@ local function initialize()
   end
   initialized = true
   chat.setup()
-  interaction.setup()
-  events.setup()
 end
 
 local function ensure_setup()
@@ -58,7 +53,6 @@ end
 function M.stop()
   ensure_setup()
   chat.stop()
-  session.shutdown()
 end
 
 function M.interrupt()
@@ -68,19 +62,16 @@ end
 
 function M.new_session()
   ensure_setup()
-  if not chat.begin_session_transition() then
-    vim.notify("hermes: wait for the new session to finish", vim.log.levels.WARN)
-    return
+  if
+    not chat.new_session(function(_, err)
+      if err then
+        vim.notify("hermes: could not create a new session: " .. (err.message or "unknown error"), vim.log.levels.ERROR)
+        return
+      end
+    end)
+  then
+    vim.notify("hermes: wait for the current response or new session to finish", vim.log.levels.WARN)
   end
-  session.new_session(function(_, err)
-    if err then
-      chat.end_session_transition()
-      vim.notify("hermes: could not create a new session: " .. (err.message or "unknown error"), vim.log.levels.ERROR)
-      return
-    end
-    chat.reset_conversation()
-    chat.end_session_transition()
-  end)
 end
 
 return M

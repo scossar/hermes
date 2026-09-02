@@ -149,4 +149,21 @@ function M.invalidate()
   approval.close()
 end
 
+-- Passive UI ports used by the controller runtime. These functions collect a
+-- user decision but never send RPC or decide whether the request is current.
+function M.show_approval(request, callback)
+  approval.open(request or {}, callback)
+end
+
+function M.show_clarification(request, callback)
+  request = request or {}
+  local question = request
+  if type(request.questions) == "table" and request.questions[1] then
+    question = request.questions[1]
+  end
+  choose_answer(question, function(answer)
+    callback({ question_id = question.qid, answer = answer or "", cancelled = answer == nil })
+  end)
+end
+
 return M

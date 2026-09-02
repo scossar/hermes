@@ -187,6 +187,9 @@ npm run build
 
 Lua tests use plenary.nvim; see `.github/workflows/ci.yml` for the complete command.
 
+The controller/state-machine design, readiness terminology, recovery invariants,
+and portable conformance scenarios are documented in [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## License
 
 MIT

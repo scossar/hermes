@@ -279,25 +279,49 @@ describe("hermes composer", function()
     local buffer = require("hermes.buffer")
     local chat = require("hermes.chat")
     local rpc = require("hermes.rpc")
-    local session = require("hermes.session")
-    local original_ensure_session = session.ensure_session
-    local original_request = rpc.request
+    local process = require("hermes.process")
+    local state = require("hermes.state")
+    local original = {
+      start = process.start,
+      stop = process.stop,
+      request = rpc.request,
+      on_event = rpc.on_event,
+      load = state.load,
+      save = state.save,
+    }
     local submitted
-    chat.reset_conversation()
-    session.ensure_session = function(callback)
-      callback("runtime-session")
+    chat.reset()
+    buffer.reset()
+    process.start = function()
+      return true
+    end
+    process.stop = function() end
+    rpc.on_event = function() end
+    state.load = function()
+      return nil
+    end
+    state.save = function()
+      return true
     end
     rpc.request = function(method, params, on_success)
-      submitted = { method = method, params = params }
-      on_success()
+      if method == "session.create" then
+        on_success({ session_id = "runtime-session", stored_session_id = "durable-session", messages = {} })
+      else
+        submitted = { method = method, params = params }
+        on_success({ accepted = true })
+      end
     end
 
     composer.open()
     vim.api.nvim_buf_set_lines(0, 0, -1, false, { "A deliberate prompt" })
     vim.cmd("HermesSubmit")
 
-    session.ensure_session = original_ensure_session
-    rpc.request = original_request
+    process.start = original.start
+    process.stop = original.stop
+    rpc.request = original.request
+    rpc.on_event = original.on_event
+    state.load = original.load
+    state.save = original.save
     assert.equals(1, #vim.api.nvim_list_wins())
     assert.same({
       method = "prompt.submit",
