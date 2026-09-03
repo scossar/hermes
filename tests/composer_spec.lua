@@ -1,5 +1,10 @@
 local composer = require("hermes.composer")
 local application = require("hermes.application")
+local buffer = require("hermes.buffer")
+local process = require("hermes.process")
+local rpc = require("hermes.rpc")
+local selection = require("hermes.selection")
+local state = require("hermes.state")
 
 local function delete_composer_buffers()
   for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
@@ -10,16 +15,36 @@ local function delete_composer_buffers()
 end
 
 describe("hermes composer", function()
-  local original_get
+  local original
 
   before_each(function()
-    original_get = application.get
+    original = {
+      application_get = application.get,
+      process_start = process.start,
+      process_stop = process.stop,
+      rpc_request = rpc.request,
+      rpc_on_event = rpc.on_event,
+      selection_current = selection.current,
+      state_load = state.load,
+      state_save = state.save,
+      notify = vim.notify,
+    }
     vim.cmd("only")
     delete_composer_buffers()
   end)
 
   after_each(function()
-    application.get = original_get
+    application.get = original.application_get
+    application.reset()
+    process.start = original.process_start
+    process.stop = original.process_stop
+    rpc.request = original.rpc_request
+    rpc.on_event = original.rpc_on_event
+    selection.current = original.selection_current
+    state.load = original.state_load
+    state.save = original.state_save
+    vim.notify = original.notify
+    buffer.reset()
     vim.cmd("only")
     delete_composer_buffers()
   end)
@@ -80,9 +105,6 @@ describe("hermes composer", function()
 
   it("refuses to send a selection from the composer", function()
     local hermes = require("hermes")
-    local selection = require("hermes.selection")
-    local original_current = selection.current
-    local original_notify = vim.notify
     local submit_calls = 0
     local selection_calls = 0
     local notifications = {}
@@ -108,8 +130,6 @@ describe("hermes composer", function()
     vim.api.nvim_buf_set_lines(draft_bufnr, 0, -1, false, { "Selected draft text", "Unselected draft text" })
     local accepted = hermes.ask_selection()
 
-    selection.current = original_current
-    vim.notify = original_notify
     assert.is_false(accepted)
     assert.equals(0, submit_calls)
     assert.equals(0, selection_calls)
@@ -246,26 +266,16 @@ describe("hermes composer", function()
     composer.open()
     local draft_bufnr = vim.api.nvim_get_current_buf()
     vim.api.nvim_buf_set_lines(draft_bufnr, 0, -1, false, { "  Keep exact whitespace  " })
+    local was_modified = vim.bo[draft_bufnr].modified
     vim.cmd("HermesSubmit")
     on_accept(false)
 
     assert.is_true(vim.api.nvim_buf_is_valid(draft_bufnr))
     assert.same({ "  Keep exact whitespace  " }, vim.api.nvim_buf_get_lines(draft_bufnr, 0, -1, false))
+    assert.equals(was_modified, vim.bo[draft_bufnr].modified)
   end)
 
   it("closes the composer split after a real application submission", function()
-    local buffer = require("hermes.buffer")
-    local rpc = require("hermes.rpc")
-    local process = require("hermes.process")
-    local state = require("hermes.state")
-    local original = {
-      start = process.start,
-      stop = process.stop,
-      request = rpc.request,
-      on_event = rpc.on_event,
-      load = state.load,
-      save = state.save,
-    }
     local submitted
     application.reset()
     buffer.reset()
@@ -293,19 +303,11 @@ describe("hermes composer", function()
     vim.api.nvim_buf_set_lines(0, 0, -1, false, { "A deliberate prompt" })
     vim.cmd("HermesSubmit")
 
-    process.start = original.start
-    process.stop = original.stop
-    rpc.request = original.request
-    rpc.on_event = original.on_event
-    state.load = original.load
-    state.save = original.save
     assert.equals(1, #vim.api.nvim_list_wins())
     assert.same({
       method = "prompt.submit",
       params = { session_id = "runtime-session", text = "A deliberate prompt" },
     }, submitted)
     assert.equals(buffer.ensure_buffer(), vim.api.nvim_get_current_buf())
-    application.reset()
-    buffer.reset()
   end)
 end)

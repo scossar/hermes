@@ -1,19 +1,38 @@
 local hermes = require("hermes")
 local application = require("hermes.application")
+local composer = require("hermes.composer")
+local selection = require("hermes.selection")
+
+local original
 
 local function stub_application(subject)
-  local original_get = application.get
   application.get = function()
     return subject
-  end
-  return function()
-    application.get = original_get
   end
 end
 
 describe("hermes.nvim", function()
+  before_each(function()
+    original = {
+      application_get = application.get,
+      composer_open = composer.open,
+      selection_current = selection.current,
+      notify = vim.notify,
+      hermes_module = package.loaded["hermes"],
+    }
+  end)
+
+  after_each(function()
+    application.get = original.application_get
+    composer.open = original.composer_open
+    selection.current = original.selection_current
+    vim.notify = original.notify
+    package.loaded["hermes"] = original.hermes_module
+    hermes = original.hermes_module
+  end)
+
   it("does not retain the legacy chat compatibility module", function()
-    assert.equals(0, vim.fn.filereadable("lua/hermes/chat.lua"))
+    assert.same({}, vim.api.nvim_get_runtime_file("lua/hermes/chat.lua", false))
   end)
 
   it("can be set up with default options", function()
@@ -32,7 +51,7 @@ describe("hermes.nvim", function()
 
   it("sends non-empty prompts directly to the application", function()
     local prompt
-    local restore = stub_application({
+    stub_application({
       submit = function(_, text)
         prompt = text
       end,
@@ -40,16 +59,13 @@ describe("hermes.nvim", function()
 
     hermes.ask("test prompt")
 
-    restore()
     assert.equals("test prompt", prompt)
   end)
 
   it("preserves the existing nil return after sending a selection", function()
-    local selection = require("hermes.selection")
-    local original_current = selection.current
     local submitted
     local submitted_options
-    local restore = stub_application({
+    stub_application({
       submit = function(_, text, options)
         submitted = text
         submitted_options = options
@@ -62,16 +78,12 @@ describe("hermes.nvim", function()
 
     local result = hermes.ask_selection()
 
-    restore()
-    selection.current = original_current
     assert.is_nil(result)
     assert.equals("Selected text", submitted)
     assert.same({ selection = true, delimiter = true }, submitted_options)
   end)
 
   it("opens the composer through the public API", function()
-    local composer = require("hermes.composer")
-    local original_open = composer.open
     local open_calls = 0
     composer.open = function()
       open_calls = open_calls + 1
@@ -79,14 +91,59 @@ describe("hermes.nvim", function()
 
     hermes.compose()
 
-    composer.open = original_open
     assert.equals(1, open_calls)
   end)
 
-  it("reports a failed new-session transition", function()
-    local original_notify = vim.notify
+  it("stops through the application", function()
+    local stop_calls = 0
+    stub_application({
+      stop = function()
+        stop_calls = stop_calls + 1
+      end,
+    })
+
+    hermes.stop()
+
+    assert.equals(1, stop_calls)
+  end)
+
+  it("does not notify when the application accepts an interrupt", function()
     local notifications = {}
-    local restore = stub_application({
+    stub_application({
+      interrupt = function()
+        return true
+      end,
+    })
+    vim.notify = function(message, level)
+      table.insert(notifications, { message = message, level = level })
+    end
+
+    hermes.interrupt()
+
+    assert.same({}, notifications)
+  end)
+
+  it("notifies when the application rejects an interrupt", function()
+    local notifications = {}
+    stub_application({
+      interrupt = function()
+        return false
+      end,
+    })
+    vim.notify = function(message, level)
+      table.insert(notifications, { message = message, level = level })
+    end
+
+    hermes.interrupt()
+
+    assert.equals(1, #notifications)
+    assert.equals("hermes: no active turn to interrupt", notifications[1].message)
+    assert.equals(vim.log.levels.INFO, notifications[1].level)
+  end)
+
+  it("reports a failed new-session transition", function()
+    local notifications = {}
+    stub_application({
       new_session = function(_, callback)
         callback(nil, { message = "could not persist replacement" })
         return true
@@ -98,15 +155,12 @@ describe("hermes.nvim", function()
 
     hermes.new_session()
 
-    restore()
-    vim.notify = original_notify
     assert.matches("could not persist replacement", notifications[#notifications])
   end)
 
   it("reports a rejected new-session transition", function()
-    local original_notify = vim.notify
     local notifications = {}
-    local restore = stub_application({
+    stub_application({
       new_session = function()
         return false
       end,
@@ -117,16 +171,13 @@ describe("hermes.nvim", function()
 
     hermes.new_session()
 
-    restore()
-    vim.notify = original_notify
     assert.matches("new session", notifications[#notifications])
   end)
 
   it("rejects overlapping new sessions until the active replacement succeeds", function()
-    local original_notify = vim.notify
     local calls = 0
     local notifications = {}
-    local restore = stub_application({
+    stub_application({
       new_session = function()
         calls = calls + 1
         return calls == 1
@@ -139,16 +190,14 @@ describe("hermes.nvim", function()
     hermes.new_session()
     hermes.new_session()
 
-    restore()
-    vim.notify = original_notify
     assert.equals(2, calls)
     assert.matches("new session", notifications[#notifications])
   end)
 
-  it("initializes public operations once and still applies later setup options", function()
+  it("applies defaults before the first public operation and accepts later setup options", function()
     local config = require("hermes.config")
     local open_calls = 0
-    local restore = stub_application({
+    stub_application({
       open = function()
         open_calls = open_calls + 1
       end,
@@ -159,10 +208,6 @@ describe("hermes.nvim", function()
     fresh_hermes.open()
     fresh_hermes.setup({ enabled = false })
     fresh_hermes.setup({ enabled = true })
-
-    restore()
-    package.loaded["hermes"] = nil
-    hermes = require("hermes")
 
     assert.equals(1, open_calls)
     assert.is_true(config.options.enabled)
