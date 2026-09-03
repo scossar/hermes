@@ -314,7 +314,7 @@ local function handle_session_store_clear_failed(self, event)
   return accepted(effects)
 end
 
-local function handle_client_stop_requested(self, event)
+local function handle_client_stop_requested(self)
   local model = self.model
   if model.bridge.phase == "stopped" or model.bridge.phase == "stopping" then
     return accepted()
@@ -346,7 +346,7 @@ local function handle_client_stop_requested(self, event)
   return accepted(effects)
 end
 
-local function handle_client_interrupt_requested(self, event)
+local function handle_client_interrupt_requested(self)
   local model = self.model
   local turn = model.turn
   if turn.phase ~= "running" or turn.session_id ~= model.session.live_id then
@@ -404,7 +404,7 @@ local function handle_bridge_exited(self, event)
   return accepted(effects)
 end
 
-local function handle_client_new_session_requested(self, event)
+local function handle_client_new_session_requested(self)
   local model = self.model
   local session = model.session
   if
@@ -589,7 +589,7 @@ local function handle_session_store_cleared(self, event)
   })
 end
 
-local function handle_client_open_requested(self, event)
+local function handle_client_open_requested(self)
   local model = self.model
   if model.bridge.phase == "stopping" then
     return rejected()
