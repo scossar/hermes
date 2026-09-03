@@ -4,7 +4,7 @@ local buffer = require("hermes.buffer")
 local process = require("hermes.process")
 local rpc = require("hermes.rpc")
 local selection = require("hermes.selection")
-local state = require("hermes.state")
+local session_store = require("hermes.session_store")
 
 local function delete_composer_buffers()
   for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
@@ -25,8 +25,8 @@ describe("hermes composer", function()
       rpc_request = rpc.request,
       rpc_on_event = rpc.on_event,
       selection_current = selection.current,
-      state_load = state.load,
-      state_save = state.save,
+      session_store_load = session_store.load,
+      session_store_save = session_store.save,
       notify = vim.notify,
     }
     vim.cmd("only")
@@ -41,8 +41,8 @@ describe("hermes composer", function()
     rpc.request = original.rpc_request
     rpc.on_event = original.rpc_on_event
     selection.current = original.selection_current
-    state.load = original.state_load
-    state.save = original.state_save
+    session_store.load = original.session_store_load
+    session_store.save = original.session_store_save
     vim.notify = original.notify
     buffer.reset()
     vim.cmd("only")
@@ -284,10 +284,10 @@ describe("hermes composer", function()
     end
     process.stop = function() end
     rpc.on_event = function() end
-    state.load = function()
+    session_store.load = function()
       return nil
     end
-    state.save = function()
+    session_store.save = function()
       return true
     end
     rpc.request = function(method, params, on_success)

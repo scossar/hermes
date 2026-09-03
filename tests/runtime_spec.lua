@@ -137,11 +137,11 @@ describe("Neovim Hermes effect runtime", function()
       process = {},
       session_store = {
         load = function(path)
-          assert.equals("state.json", path)
+          assert.equals("session-store.json", path)
           return "durable-1"
         end,
       },
-      state_file = "state.json",
+      session_store_file = "session-store.json",
       dispatch = function(event)
         dispatched = event
       end,
@@ -247,7 +247,7 @@ describe("Neovim Hermes effect runtime", function()
       process = {},
       session_store = {
         save = function(path, durable_id)
-          assert.equals("state.json", path)
+          assert.equals("session-store.json", path)
           assert.equals("durable-2", durable_id)
           if should_succeed then
             return true
@@ -255,7 +255,7 @@ describe("Neovim Hermes effect runtime", function()
           return false, "permission denied"
         end,
       },
-      state_file = "state.json",
+      session_store_file = "session-store.json",
       dispatch = function(event)
         table.insert(dispatched, event)
       end,

@@ -19,7 +19,7 @@ end
 function M.save(path, stored_session_id)
   local dir = vim.fs.dirname(path)
   if vim.fn.mkdir(dir, "p") == 0 and vim.fn.isdirectory(dir) ~= 1 then
-    return false, "could not create state directory"
+    return false, "could not create session store directory"
   end
   local temporary = path .. ".tmp"
   local ok_write, write_err =
@@ -41,7 +41,7 @@ function M.clear(path)
   end
   local result = vim.fn.delete(path)
   if result ~= 0 then
-    return false, "could not delete state file"
+    return false, "could not delete session store file"
   end
   return true
 end

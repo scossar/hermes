@@ -5,7 +5,7 @@ local plugin_root = vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(source)))
 
 M.defaults = {
   enabled = true,
-  state_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
+  session_store_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
   bridge_cmd = {
     "node",
     plugin_root .. "/bridge/dist/bridge.js",

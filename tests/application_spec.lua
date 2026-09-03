@@ -96,7 +96,7 @@ describe("production Hermes application", function()
       },
       agent_events = { begin_turn = function() end, end_turn = function() end, render = function() end },
       interaction = { invalidate = function() end },
-      state_file = "state.json",
+      session_store_file = "session-store.json",
       bridge_command = { "node", "bridge.js" },
       request_context = function()
         return { cols = 100, cwd = "/repo", source = "hermes.nvim", title = "hermes.nvim session" }

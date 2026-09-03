@@ -11,9 +11,9 @@ hermes.nvim separates a portable transition system from Neovim-specific I/O. The
 - `application.lua` composes machine, controller, and runtime and owns public
   submission/new-session callbacks. Public commands in `init.lua` and the
   composer resolve this application directly.
-- Process, RPC, state, history, and buffer modules are I/O and projection
-  adapters, not lifecycle authorities. `events.lua` and `interaction.lua` are
-  passive UI ports driven by runtime effects.
+- Process, RPC, session-store, history, and buffer modules are I/O and
+  projection adapters, not lifecycle authorities. `events.lua` and
+  `interaction.lua` are passive UI ports driven by runtime effects.
 
 ## Model regions
 
@@ -91,7 +91,10 @@ When a bridge exits, the runtime first dispatches the generation-scoped exit eve
 
 ## Runtime configuration
 
-Production runtime options use provider functions for `bridge_cmd` and `state_file`. Values are read when each effect runs, so a later `setup()` change made before activation is honored. Injected fixed values remain supported for tests and custom adapters.
+Production runtime options use provider functions for `bridge_cmd` and
+`session_store_file`. Values are read when each effect runs, so a later
+`setup()` change made before activation is honored. Injected fixed values remain
+supported for tests and custom adapters.
 
 ## Executable conformance specification
 

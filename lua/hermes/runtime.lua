@@ -102,16 +102,18 @@ function Runtime:run(effect)
       self.dispatch(event)
     end)
   elseif effect.type == "session_store.load" then
-    local state_file = self.state_file_provider and self.state_file_provider() or self.state_file
+    local session_store_file = self.session_store_file_provider and self.session_store_file_provider()
+      or self.session_store_file
     self.dispatch({
       type = "session_store.loaded",
       bridge_generation = effect.bridge_generation,
       connection_generation = effect.connection_generation,
-      durable_id = self.session_store.load(state_file),
+      durable_id = self.session_store.load(session_store_file),
     })
   elseif effect.type == "session_store.save" then
-    local state_file = self.state_file_provider and self.state_file_provider() or self.state_file
-    local ok, err = self.session_store.save(state_file, effect.durable_id)
+    local session_store_file = self.session_store_file_provider and self.session_store_file_provider()
+      or self.session_store_file
+    local ok, err = self.session_store.save(session_store_file, effect.durable_id)
     self.dispatch({
       type = ok and "session_store.saved" or "session_store.save_failed",
       operation_id = effect.operation_id,
@@ -121,8 +123,9 @@ function Runtime:run(effect)
       error = ok and nil or err,
     })
   elseif effect.type == "session_store.clear" then
-    local state_file = self.state_file_provider and self.state_file_provider() or self.state_file
-    local ok, err = self.session_store.clear(state_file)
+    local session_store_file = self.session_store_file_provider and self.session_store_file_provider()
+      or self.session_store_file
+    local ok, err = self.session_store.clear(session_store_file)
     self.dispatch({
       type = ok and "session_store.cleared" or "session_store.clear_failed",
       operation_id = effect.operation_id,
@@ -259,8 +262,8 @@ function M.new(options)
     rpc = options.rpc,
     protocol = options.protocol,
     session_store = options.session_store,
-    state_file = options.state_file,
-    state_file_provider = options.state_file_provider,
+    session_store_file = options.session_store_file,
+    session_store_file_provider = options.session_store_file_provider,
     bridge_command = options.bridge_command,
     bridge_command_provider = options.bridge_command_provider,
     request_context = options.request_context or function()
@@ -300,9 +303,9 @@ function M.production_options()
     process = require("hermes.process"),
     rpc = require("hermes.rpc"),
     protocol = require("hermes.protocol"),
-    session_store = require("hermes.state"),
-    state_file_provider = function()
-      return config.options.state_file
+    session_store = require("hermes.session_store"),
+    session_store_file_provider = function()
+      return config.options.session_store_file
     end,
     bridge_command_provider = function()
       return config.options.bridge_cmd

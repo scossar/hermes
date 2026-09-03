@@ -44,14 +44,14 @@ required.
 
 ```lua
 require("hermes").setup({
-  state_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
+  session_store_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
   composer_height = 10,
 })
 ```
 
-The default `state_file` shown above stores the durable Hermes session ID used
-to resume the conversation after Neovim restarts. Override it if you want the
-session state stored elsewhere.
+The default `session_store_file` shown above stores the durable Hermes session
+ID used to resume the conversation after Neovim restarts. Override it if you
+want the session association stored elsewhere.
 
 The default bridge command runs the bundled bridge with Node.js and connects to
 `http://127.0.0.1:9119`. Its script path is resolved from the plugin's actual

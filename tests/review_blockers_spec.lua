@@ -513,9 +513,9 @@ describe("runtime review blockers", function()
     assert.equals(4, dispatched[2].projection_generation)
   end)
 
-  it("reads bridge and state configuration at effect execution time", function()
+  it("reads bridge and session-store configuration at effect execution time", function()
     local command = { "node", "old.js" }
-    local state_file = "old.json"
+    local session_store_file = "old.json"
     local seen = {}
     local subject = runtime.new({
       process = {
@@ -526,23 +526,23 @@ describe("runtime review blockers", function()
       },
       session_store = {
         load = function(value)
-          seen.state_file = value
+          seen.session_store_file = value
         end,
       },
       bridge_command_provider = function()
         return command
       end,
-      state_file_provider = function()
-        return state_file
+      session_store_file_provider = function()
+        return session_store_file
       end,
       dispatch = function() end,
     })
     command = { "node", "new.js" }
-    state_file = "new.json"
+    session_store_file = "new.json"
     subject:run({ type = "bridge.start", bridge_generation = 1, connection_generation = 1 })
     subject:run({ type = "session_store.load", bridge_generation = 1, connection_generation = 1 })
     assert.same({ "node", "new.js" }, seen.command)
-    assert.equals("new.json", seen.state_file)
+    assert.equals("new.json", seen.session_store_file)
   end)
 
   it("fails pending RPC state on bridge exit and stop after model reset dispatch", function()

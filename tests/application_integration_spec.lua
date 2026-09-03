@@ -2,7 +2,7 @@ local buffer = require("hermes.buffer")
 local application = require("hermes.application")
 local process = require("hermes.process")
 local rpc = require("hermes.rpc")
-local state = require("hermes.state")
+local session_store = require("hermes.session_store")
 
 local function app()
   return application.get()
@@ -24,8 +24,8 @@ describe("Hermes application integration", function()
     original.stop = process.stop
     original.request = rpc.request
     original.on_event = rpc.on_event
-    original.load = state.load
-    original.save = state.save
+    original.load = session_store.load
+    original.save = session_store.save
     original.notify = vim.notify
     requests = {}
     notifications = {}
@@ -40,10 +40,10 @@ describe("Hermes application integration", function()
     rpc.request = function(method, params, success, failure)
       table.insert(requests, { method = method, params = params, success = success, failure = failure })
     end
-    state.load = function()
+    session_store.load = function()
       return nil
     end
-    state.save = function()
+    session_store.save = function()
       return true
     end
     vim.notify = function(message, level)
@@ -58,8 +58,8 @@ describe("Hermes application integration", function()
     process.stop = original.stop
     rpc.request = original.request
     rpc.on_event = original.on_event
-    state.load = original.load
-    state.save = original.save
+    session_store.load = original.load
+    session_store.save = original.save
     vim.notify = original.notify
     application.reset()
     buffer.reset()
@@ -201,7 +201,7 @@ describe("Hermes application integration", function()
   end)
 
   it("hydrates the scratch buffer when opening a resumed session", function()
-    state.load = function()
+    session_store.load = function()
       return "durable-1"
     end
     app():open()
