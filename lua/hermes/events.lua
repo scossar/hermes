@@ -1,16 +1,10 @@
 local buffer = require("hermes.buffer")
-local rpc = require("hermes.rpc")
-local session = require("hermes.session")
 
 local M = {}
 
 local active = false
 local reasoning = ""
 local tools = {}
-
-local function relevant(params)
-  return active and params.session_id == session.current_session_id()
-end
 
 local function render()
   local lines = {}
@@ -33,11 +27,8 @@ local function render()
   buffer.set_event("agent-events", lines)
 end
 
-local function reasoning_event(params)
-  if not relevant(params) then
-    return
-  end
-  reasoning = reasoning .. tostring((params.payload or {}).text or "")
+local function reasoning_event(payload)
+  reasoning = reasoning .. tostring(payload.text or "")
   render()
 end
 
@@ -59,26 +50,12 @@ local function find_tool(payload)
   return tool
 end
 
-local function tool_event(status)
-  return function(params)
-    if not relevant(params) then
-      return
-    end
-    local payload = params.payload or {}
-    local tool = find_tool(payload)
-    tool.name = tostring(payload.name or tool.name)
-    tool.status = status
-    tool.detail = tostring(payload.summary or payload.preview or payload.error or payload.context or tool.detail)
-    render()
-  end
-end
-
-function M.setup()
-  rpc.on_event("reasoning.delta", reasoning_event)
-  rpc.on_event("thinking.delta", reasoning_event)
-  rpc.on_event("tool.start", tool_event("started"))
-  rpc.on_event("tool.progress", tool_event("working"))
-  rpc.on_event("tool.complete", tool_event("complete"))
+local function tool_event(status, payload)
+  local tool = find_tool(payload)
+  tool.name = tostring(payload.name or tool.name)
+  tool.status = status
+  tool.detail = tostring(payload.summary or payload.preview or payload.error or payload.context or tool.detail)
+  render()
 end
 
 function M.begin_turn()
@@ -92,18 +69,19 @@ function M.end_turn()
   active = false
 end
 
--- Passive projection entry point used by the application runtime. Wire-event
--- subscription remains below only as a compatibility adapter for older users.
 function M.render(activity_type, payload)
-  local params = { session_id = session.current_session_id(), payload = payload or {} }
+  if not active then
+    return
+  end
+  payload = payload or {}
   if activity_type == "reasoning.delta" or activity_type == "thinking.delta" then
-    reasoning_event(params)
+    reasoning_event(payload)
   elseif activity_type == "tool.start" then
-    tool_event("started")(params)
+    tool_event("started", payload)
   elseif activity_type == "tool.progress" then
-    tool_event("working")(params)
+    tool_event("working", payload)
   elseif activity_type == "tool.complete" then
-    tool_event("complete")(params)
+    tool_event("complete", payload)
   end
 end
 

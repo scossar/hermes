@@ -497,6 +497,29 @@ describe("portable Hermes client machine", function()
     }, result.effects)
   end)
 
+  it("rejects an interaction answer after invalidation", function()
+    local machine = active_machine()
+    machine:dispatch({
+      type = "approval.requested",
+      session_id = "live-1",
+      sequence = 20,
+      request_id = "approval-1",
+      request = { request_id = "approval-1" },
+    })
+    machine:dispatch({ type = "client.stop_requested" })
+
+    local stale = machine:dispatch({
+      type = "approval.answered",
+      interaction_generation = 1,
+      request_id = "approval-1",
+      choice = "once",
+    })
+
+    assert.is_false(stale.accepted)
+    assert.same({}, stale.effects)
+    assert.equals("none", machine.model.interaction.phase)
+  end)
+
   it("admits a blocking interaction only for the active session", function()
     local machine = active_machine()
 

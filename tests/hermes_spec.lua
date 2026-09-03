@@ -35,6 +35,10 @@ describe("hermes.nvim", function()
     assert.same({}, vim.api.nvim_get_runtime_file("lua/hermes/chat.lua", false))
   end)
 
+  it("does not retain the legacy session compatibility module", function()
+    assert.same({}, vim.api.nvim_get_runtime_file("lua/hermes/session.lua", false))
+  end)
+
   it("can be set up with default options", function()
     hermes.setup()
     local config = require("hermes.config")

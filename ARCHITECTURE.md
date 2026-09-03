@@ -8,8 +8,12 @@ hermes.nvim separates a portable transition system from Neovim-specific I/O. The
 - `controller.lua` owns serialization. It drains an event queue and runs returned effects in order. Events dispatched synchronously by an effect are appended and handled only after the current effect list. If a transition or effect throws, `dispatching` is restored before the error propagates and already-queued events remain available to the next dispatch.
 - `protocol.lua` validates and converts gateway payloads to domain events. Unsupported string event types become `protocol.unknown` rather than being guessed into known semantics.
 - `runtime.lua` executes effects through injected adapters and converts every asynchronous completion into a correlated event.
-- `application.lua` composes machine, controller, and runtime and owns public submission/new-session callbacks. Public commands in `init.lua` and the composer resolve this application directly.
-- `session.lua` is a compatibility facade. Process, RPC, state, history, buffer, activity, approval, and interaction modules are adapters, not lifecycle authorities.
+- `application.lua` composes machine, controller, and runtime and owns public
+  submission/new-session callbacks. Public commands in `init.lua` and the
+  composer resolve this application directly.
+- Process, RPC, state, history, and buffer modules are I/O and projection
+  adapters, not lifecycle authorities. `events.lua` and `interaction.lua` are
+  passive UI ports driven by runtime effects.
 
 ## Model regions
 

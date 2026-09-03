@@ -1,7 +1,5 @@
 local interaction = require("hermes.interaction")
 local approval = require("hermes.approval")
-local rpc = require("hermes.rpc")
-local session = require("hermes.session")
 
 local function pick(items, options, callback)
   assert.is_table(items)
@@ -14,152 +12,69 @@ local function input(options, callback)
   callback("typed answer")
 end
 
-describe("interactive Hermes prompts", function()
+describe("interactive Hermes UI ports", function()
   local original_select
   local original_input
-  local original_request
-  local original_session_id
 
   before_each(function()
     approval.close()
     original_select = vim.ui.select
     original_input = vim.ui.input
-    original_request = rpc.request
-    original_session_id = session.current_session_id
     vim.ui.select = pick
     vim.ui.input = input
-    session.current_session_id = function()
-      return "live-session"
-    end
-    interaction.setup()
   end)
 
   after_each(function()
     approval.close()
     vim.ui.select = original_select
     vim.ui.input = original_input
-    rpc.request = original_request
-    session.current_session_id = original_session_id
   end)
 
-  it("answers approval requests from the dedicated approval window", function()
-    local sent
-    rpc.request = function(method, params)
-      sent = { method = method, params = params }
-    end
-
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "approval.request",
-        session_id = "live-session",
-        payload = {
-          request_id = "approval-1",
-          command = "rm file",
-          description = "Remove a file",
-          choices = { "once", "deny" },
-        },
-      },
-    })
+  it("returns an approval choice from the dedicated approval window", function()
+    local choice
+    interaction.show_approval({
+      request_id = "approval-1",
+      command = "rm file",
+      description = "Remove a file",
+      choices = { "once", "deny" },
+    }, function(value)
+      choice = value
+    end)
 
     assert.equals("hermes://approval", vim.api.nvim_buf_get_name(0))
     assert.matches("Remove a file", table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n"), 1, true)
     vim.api.nvim_feedkeys("1", "x", false)
 
-    assert.same({
-      method = "approval.respond",
-      params = {
-        session_id = "live-session",
-        request_id = "approval-1",
-        choice = "once",
-      },
-    }, sent)
+    assert.equals("once", choice)
   end)
 
-  it("answers a single clarification question", function()
-    local sent
-    rpc.request = function(method, params)
-      sent = { method = method, params = params }
-    end
+  it("returns a typed clarification answer", function()
+    local answer
+    interaction.show_clarification({ qid = "q1", question = "Which file?" }, function(value)
+      answer = value
+    end)
 
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "clarify.request",
-        session_id = "live-session",
-        payload = { request_id = "clarify-1", question = "Which file?" },
-      },
-    })
-
-    assert.same({
-      method = "clarify.respond",
-      params = {
-        session_id = "live-session",
-        request_id = "clarify-1",
-        answer = "typed answer",
-      },
-    }, sent)
+    assert.same({ question_id = "q1", answer = "typed answer", cancelled = false }, answer)
   end)
 
-  it("locks each answer in a batch clarification", function()
-    local sent = {}
-    rpc.request = function(method, params, on_result)
-      table.insert(sent, { method = method, params = params })
-      if on_result then
-        on_result({ status = "ok" })
-      end
-    end
-
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "clarify.request",
-        session_id = "live-session",
-        payload = {
-          request_id = "clarify-batch",
-          questions = {
-            { qid = "q1", question = "First?", choices = { "one" } },
-            { qid = "q2", question = "Second?" },
-          },
-        },
-      },
-    })
-
-    assert.equals(2, #sent)
-    assert.equals("q1", sent[1].params.question_id)
-    assert.equals("one", sent[1].params.answer)
-    assert.equals("q2", sent[2].params.question_id)
-    assert.equals("typed answer", sent[2].params.answer)
-  end)
-
-  it("cancels an entire clarification batch without opening later questions", function()
-    local prompts = 0
+  it("returns cancellation without inventing an answer", function()
     vim.ui.select = function(_, _, callback)
-      prompts = prompts + 1
       callback(nil)
     end
-    local sent
-    rpc.request = function(method, params)
-      sent = { method = method, params = params }
-    end
+    local answer
+    interaction.show_clarification({ qid = "q1", question = "Continue?", choices = { "yes" } }, function(value)
+      answer = value
+    end)
 
-    rpc.handle_message({
-      method = "event",
-      params = {
-        type = "clarify.request",
-        session_id = "live-session",
-        payload = {
-          request_id = "batch",
-          questions = {
-            { qid = "q1", question = "First?", choices = { "one" } },
-            { qid = "q2", question = "Second?", choices = { "two" } },
-          },
-        },
-      },
-    })
+    assert.same({ question_id = "q1", answer = "", cancelled = true }, answer)
+  end)
 
-    assert.equals(1, prompts)
-    assert.is_nil(sent.params.question_id)
-    assert.equals("", sent.params.answer)
+  it("invalidates an open approval", function()
+    interaction.show_approval({ description = "Pending", choices = { "once", "deny" } }, function() end)
+    local approval_buffer = vim.api.nvim_get_current_buf()
+
+    interaction.invalidate()
+
+    assert.is_false(vim.api.nvim_buf_is_valid(approval_buffer))
   end)
 end)
