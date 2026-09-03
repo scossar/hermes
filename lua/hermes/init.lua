@@ -1,5 +1,5 @@
 local config = require("hermes.config")
-local chat = require("hermes.chat")
+local application = require("hermes.application")
 local selection = require("hermes.selection")
 local composer = require("hermes.composer")
 
@@ -7,12 +7,8 @@ local M = {}
 
 local initialized = false
 
-local function initialize()
-  if initialized then
-    return
-  end
-  initialized = true
-  chat.setup()
+local function app()
+  return application.get()
 end
 
 local function ensure_setup()
@@ -23,12 +19,12 @@ end
 
 function M.setup(opts)
   config.options = vim.tbl_deep_extend("force", {}, config.defaults, opts or {})
-  initialize()
+  initialized = true
 end
 
 function M.ask(prompt)
   ensure_setup()
-  chat.ask(prompt)
+  app():submit(prompt)
 end
 
 function M.ask_selection()
@@ -37,12 +33,12 @@ function M.ask_selection()
     vim.notify("hermes: selections from the Compose buffer cannot be sent; use :HermesSubmit", vim.log.levels.WARN)
     return false
   end
-  chat.ask_selection(selection.current())
+  app():submit(selection.current(), { selection = true, delimiter = true })
 end
 
 function M.open()
   ensure_setup()
-  chat.open()
+  app():open()
 end
 
 function M.compose()
@@ -52,18 +48,20 @@ end
 
 function M.stop()
   ensure_setup()
-  chat.stop()
+  app():stop()
 end
 
 function M.interrupt()
   ensure_setup()
-  chat.interrupt()
+  if not app():interrupt() then
+    vim.notify("hermes: no active turn to interrupt", vim.log.levels.INFO)
+  end
 end
 
 function M.new_session()
   ensure_setup()
   if
-    not chat.new_session(function(_, err)
+    not app():new_session(function(_, err)
       if err then
         vim.notify("hermes: could not create a new session: " .. (err.message or "unknown error"), vim.log.levels.ERROR)
         return

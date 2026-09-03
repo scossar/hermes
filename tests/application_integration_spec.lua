@@ -1,14 +1,18 @@
 local buffer = require("hermes.buffer")
-local chat = require("hermes.chat")
+local application = require("hermes.application")
 local process = require("hermes.process")
 local rpc = require("hermes.rpc")
 local state = require("hermes.state")
+
+local function app()
+  return application.get()
+end
 
 local function transcript()
   return table.concat(vim.api.nvim_buf_get_lines(buffer.ensure_buffer(), 0, -1, false), "\n")
 end
 
-describe("hermes basic chat", function()
+describe("Hermes application integration", function()
   local original = {}
   local requests
   local receiver
@@ -45,7 +49,7 @@ describe("hermes basic chat", function()
     vim.notify = function(message, level)
       table.insert(notifications, { message = message, level = level })
     end
-    chat.reset()
+    application.reset()
     buffer.reset()
   end)
 
@@ -57,7 +61,7 @@ describe("hermes basic chat", function()
     state.load = original.load
     state.save = original.save
     vim.notify = original.notify
-    chat.reset()
+    application.reset()
     buffer.reset()
   end)
 
@@ -67,7 +71,7 @@ describe("hermes basic chat", function()
   end
 
   local function begin(prompt, options)
-    assert.is_true(chat.ask(prompt, options))
+    assert.is_true(app():submit(prompt, options))
     activate()
     assert.equals("prompt.submit", requests[2].method)
   end
@@ -84,7 +88,7 @@ describe("hermes basic chat", function()
     assert.same({ session_id = "live-1", text = "Hello" }, requests[2].params)
     assert.matches("Hi there", transcript())
     assert.is_nil(transcript():match("ignore"))
-    assert.is_false(chat.is_running())
+    assert.is_false(app():is_running())
   end)
 
   it("keeps trimming direct prompts", function()
@@ -101,7 +105,7 @@ describe("hermes basic chat", function()
   it("sends selected text without duplicating it and delimits the response", function()
     local bufnr = buffer.ensure_buffer()
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Selected prompt" })
-    assert.is_true(chat.ask_selection("Selected prompt"))
+    assert.is_true(app():submit("Selected prompt", { selection = true, delimiter = true }))
     activate()
     event("message.complete", 1, { text = "Selected response", status = "complete" })
     assert.equals(1, select(2, transcript():gsub("Selected prompt", "")))
@@ -154,45 +158,45 @@ describe("hermes basic chat", function()
       pcall(event, "message.complete", 1, { text = { "bad" }, status = "error", error = "", partial = true })
     )
     assert.matches("without an error message", transcript())
-    assert.is_false(chat.is_running())
+    assert.is_false(app():is_running())
   end)
 
   it("rejects a second prompt while session creation is pending", function()
-    assert.is_true(chat.ask("First"))
-    assert.is_false(chat.ask("Second"))
-    assert.is_true(chat.is_running())
+    assert.is_true(app():submit("First"))
+    assert.is_false(app():submit("Second"))
+    assert.is_true(app():is_running())
   end)
 
   it("recovers when the bridge disconnects during a response", function()
     begin("Hello")
     on_exit(1)
-    assert.is_false(chat.is_running())
+    assert.is_false(app():is_running())
     assert.matches("Connection lost", transcript())
   end)
 
   it("can be stopped during an active response", function()
     begin("Hello")
-    chat.stop()
-    assert.is_false(chat.is_running())
+    app():stop()
+    assert.is_false(app():is_running())
     assert.matches("Stopped", transcript())
   end)
 
   it("interrupts an active turn without closing the session", function()
     begin("Long task")
     requests[2].success({ accepted = true })
-    chat.interrupt()
+    app():interrupt()
     assert.equals("session.interrupt", requests[3].method)
     requests[3].success({ status = "interrupted" })
-    assert.is_true(chat.is_running())
+    assert.is_true(app():is_running())
     event("message.complete", 1, { status = "interrupted" })
-    assert.is_false(chat.is_running())
+    assert.is_false(app():is_running())
     assert.matches("Interrupted", transcript())
   end)
 
   it("recovers when session creation fails", function()
-    assert.is_true(chat.ask("Hello"))
+    assert.is_true(app():submit("Hello"))
     requests[1].failure({ message = "connection failed" })
-    assert.is_false(chat.is_running())
+    assert.is_false(app():is_running())
     assert.matches("connection failed", transcript())
   end)
 
@@ -200,7 +204,7 @@ describe("hermes basic chat", function()
     state.load = function()
       return "durable-1"
     end
-    chat.open()
+    app():open()
     requests[1].success({
       session_id = "live-1",
       stored_session_id = "durable-1",

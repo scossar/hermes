@@ -1,8 +1,12 @@
-local chat = require("hermes.chat")
+local application = require("hermes.application")
 local config = require("hermes.config")
 local buffer = require("hermes.buffer")
 
 local M = {}
+
+local function app()
+  return application.get()
+end
 
 local bufnr
 
@@ -78,7 +82,7 @@ function M.submit()
   end
 
   vim.bo[target].modified = false
-  if chat.ask(prompt, { preserve_whitespace = true, on_accept = on_accept }) ~= true then
+  if app():submit(prompt, { preserve_whitespace = true, on_accept = on_accept }) ~= true then
     if vim.api.nvim_buf_is_valid(target) then
       vim.bo[target].modified = was_modified
     end
@@ -104,7 +108,7 @@ function M.open()
     end
   end
 
-  chat.open()
+  app():open()
   vim.cmd("botright split")
   vim.api.nvim_win_set_buf(0, ensure_buffer())
   vim.api.nvim_win_set_height(0, config.options.composer_height)
