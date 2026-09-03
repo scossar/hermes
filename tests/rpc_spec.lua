@@ -32,7 +32,7 @@ describe("JSON-RPC dispatch", function()
 
   it("ignores events whose params are not an object", function()
     local handled = false
-    rpc.on_event("message.delta", function()
+    rpc.on_event(function()
       handled = true
     end)
 
@@ -44,7 +44,7 @@ describe("JSON-RPC dispatch", function()
 
   it("ignores events whose payload is not an object", function()
     local handled = false
-    rpc.on_event("message.delta", function(params)
+    rpc.on_event(function(params)
       handled = true
       return params.payload.text
     end)
@@ -96,7 +96,7 @@ describe("JSON-RPC dispatch", function()
     assert.is_true(received_result)
   end)
 
-  it("does not suppress sequence duplicates before the general receiver", function()
+  it("forwards sequence duplicates for the machine to decide", function()
     local count = 0
     rpc.on_event(function()
       count = count + 1
@@ -107,14 +107,10 @@ describe("JSON-RPC dispatch", function()
     assert.equals(2, count)
   end)
 
-  it("retains sequence suppression for legacy typed handlers", function()
-    local count = 0
-    rpc.on_event("message.delta", function()
-      count = count + 1
-    end)
-    local frame = { method = "event", params = { type = "message.delta", session_id = "live", seq = 1, payload = {} } }
-    rpc.handle_message(frame)
-    rpc.handle_message(frame)
-    assert.equals(1, count)
+  it("rejects event-specific receiver registration", function()
+    local ok, err = pcall(rpc.on_event, "message.delta", function() end)
+
+    assert.is_false(ok)
+    assert.matches("one general event receiver", err)
   end)
 end)

@@ -76,7 +76,11 @@ Every asynchronous operation carries the identity needed to reject stale complet
 - turn generation plus operation ID scope submit/interrupt callbacks;
 - interaction generation plus operation ID and request ID scope blocking responses.
 
-Completions with any mismatched field are rejected without effects. Generations are monotonic. `session.last_sequence` is reset on activation/reconnect, stop, and bridge exit. The controller—not the general RPC receiver—enforces sequence order. Legacy typed RPC handlers retain their compatibility suppression. An ordered `protocol.unknown` for the active session advances the watermark but has no semantic effect.
+Completions with any mismatched field are rejected without effects. Generations
+are monotonic. `session.last_sequence` is reset on activation/reconnect, stop,
+and bridge exit. The machine—not the JSON-RPC adapter—enforces sequence order.
+An ordered `protocol.unknown` for the active session advances the watermark but
+has no semantic effect.
 
 When a bridge exits, the runtime first dispatches the generation-scoped exit event so the model resets, then calls `rpc.fail_pending`. Stop paths likewise call `rpc.fail_pending`; callbacks released by that cleanup are stale and cannot change the reset model.
 
