@@ -6,6 +6,42 @@ local function load_application()
 end
 
 describe("production Hermes application", function()
+  it("does not add runtime wiring to the caller's options", function()
+    local options = {
+      process = {
+        start = function() end,
+        stop = function() end,
+      },
+    }
+
+    load_application().new(options)
+
+    assert.is_nil(options.dispatch)
+    assert.is_nil(options.submission_settle)
+    assert.is_nil(options.session_transition_settle)
+    assert.is_nil(options.notify)
+  end)
+
+  it("settles an accepted session transition without an error", function()
+    local app = load_application().new({
+      process = {
+        start = function() end,
+        stop = function() end,
+      },
+    })
+    local settled_live_id
+    local settled_error
+    app.session_transition_callback = function(live_id, err)
+      settled_live_id = live_id
+      settled_error = err
+    end
+
+    app.runtime.session_transition_settle(true, "live-2")
+
+    assert.equals("live-2", settled_live_id)
+    assert.is_nil(settled_error)
+  end)
+
   it("drives bridge, canonical hydration, prompt streaming, and completion through one controller", function()
     local requests = {}
     local receiver
