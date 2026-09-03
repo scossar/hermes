@@ -69,6 +69,10 @@ local function accepted(effects)
   return { accepted = true, effects = effects or {} }
 end
 
+local function rejected()
+  return { accepted = false, effects = {} }
+end
+
 local function reset_turn(turn)
   turn.phase = "idle"
   turn.session_id = nil
@@ -256,7 +260,7 @@ function Machine:dispatch(event)
       or event.bridge_generation ~= model.bridge.generation
       or event.connection_generation ~= model.connection.generation
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     local effects = {}
     if model.turn.phase == "queued" then
@@ -284,7 +288,7 @@ function Machine:dispatch(event)
       or event.operation_id ~= session.operation_id
       or event.session_generation ~= session.generation
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     local message = tostring(event.error or "unknown error")
     local effects = { { type = "notify", level = "error", message = "could not clear stale session: " .. message } }
@@ -341,7 +345,7 @@ function Machine:dispatch(event)
     local model = self.model
     local turn = model.turn
     if turn.phase ~= "running" or turn.session_id ~= model.session.live_id then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     turn.phase = "interrupting"
     turn.operation_id = self:next_operation_id()
@@ -365,7 +369,7 @@ function Machine:dispatch(event)
       or event.connection_generation ~= model.connection.generation
       or model.bridge.phase == "stopped"
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     local expected_stop = model.bridge.phase == "stopping"
     local effects = {}
@@ -400,7 +404,7 @@ function Machine:dispatch(event)
       or model.turn.phase ~= "idle"
       or model.interaction.phase ~= "none"
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     session.generation = session.generation + 1
     session.phase = "replacing"
@@ -434,7 +438,7 @@ function Machine:dispatch(event)
       or type(event.durable_id) ~= "string"
       or event.durable_id == ""
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     session.phase = "persisting_replacement"
     self.replacement.new_live_id = event.live_id
@@ -458,7 +462,7 @@ function Machine:dispatch(event)
         or event.operation_id ~= session.operation_id
         or event.session_generation ~= session.generation
       then
-        return { accepted = false, effects = {} }
+        return rejected()
       end
       session.phase = "active"
       session.operation_id = nil
@@ -474,7 +478,7 @@ function Machine:dispatch(event)
       or event.operation_id ~= session.operation_id
       or event.session_generation ~= session.generation
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     local replacement = self.replacement
     session.phase = "active"
@@ -501,7 +505,7 @@ function Machine:dispatch(event)
         or event.operation_id ~= session.operation_id
         or event.session_generation ~= session.generation
       then
-        return { accepted = false, effects = {} }
+        return rejected()
       end
       local message = tostring(event.error or "unknown error")
       local effects = {}
@@ -523,7 +527,7 @@ function Machine:dispatch(event)
       or event.operation_id ~= session.operation_id
       or event.session_generation ~= session.generation
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     session.phase = "active"
     session.live_id = self.replacement.old_live_id
@@ -549,7 +553,7 @@ function Machine:dispatch(event)
       or event.operation_id ~= session.operation_id
       or event.session_generation ~= session.generation
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     session.durable_id = nil
     session.generation = session.generation + 1
@@ -569,7 +573,7 @@ function Machine:dispatch(event)
   elseif event.type == "client.open_requested" then
     local model = self.model
     if model.bridge.phase == "stopping" then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     if model.connection.phase == "ready" and model.session.phase == "active" and model.projection.phase == "ready" then
       return accepted({ { type = "projection.show" } })
@@ -591,7 +595,7 @@ function Machine:dispatch(event)
   elseif event.type == "bridge.started" then
     local model = self.model
     if model.bridge.phase ~= "starting" or event.bridge_generation ~= model.bridge.generation then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.bridge.phase = "running"
     return accepted({
@@ -608,7 +612,7 @@ function Machine:dispatch(event)
       or event.bridge_generation ~= model.bridge.generation
       or event.connection_generation ~= model.connection.generation
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.session.generation = model.session.generation + 1
     model.session.last_sequence = 0
@@ -641,7 +645,7 @@ function Machine:dispatch(event)
       or type(event.durable_id) ~= "string"
       or event.durable_id == ""
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     if not valid_activation_payload(event) then
       local effects = {}
@@ -689,7 +693,7 @@ function Machine:dispatch(event)
       or event.session_generation ~= model.session.generation
       or event.session_id ~= model.session.live_id
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.connection.phase = "ready"
     model.projection.phase = "ready"
@@ -730,7 +734,7 @@ function Machine:dispatch(event)
       or event.session_generation ~= model.session.generation
       or event.session_id ~= model.session.live_id
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     local message = tostring(event.error or "unknown error")
     local effects = {}
@@ -755,7 +759,7 @@ function Machine:dispatch(event)
       or event.text == ""
       or event.submission_id == nil
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     if model.connection.phase ~= "ready" or model.session.phase ~= "active" or model.projection.phase ~= "ready" then
       turn.phase = "queued"
@@ -909,7 +913,7 @@ function Machine:dispatch(event)
       reset_turn(turn)
       return accepted(effects)
     end
-    return { accepted = false, effects = {} }
+    return rejected()
   elseif event.type == "operation.succeeded" then
     local model = self.model
     local interaction = model.interaction
@@ -963,7 +967,7 @@ function Machine:dispatch(event)
       or event.session_generation ~= model.session.generation
       or event.turn_generation ~= turn.generation
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     turn.phase = "running"
     turn.operation_id = nil
@@ -980,7 +984,7 @@ function Machine:dispatch(event)
       or type(event.sequence) ~= "number"
       or event.sequence <= model.session.last_sequence
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.session.last_sequence = event.sequence
     local effects = {}
@@ -1001,7 +1005,7 @@ function Machine:dispatch(event)
       or type(event.sequence) ~= "number"
       or event.sequence <= model.session.last_sequence
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.session.last_sequence = event.sequence
     local effects = {}
@@ -1026,7 +1030,7 @@ function Machine:dispatch(event)
       or type(event.sequence) ~= "number"
       or event.sequence <= model.session.last_sequence
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.session.last_sequence = event.sequence
     local finish = {
@@ -1057,7 +1061,7 @@ function Machine:dispatch(event)
   elseif event.type == "protocol.unknown" then
     local model = self.model
     if not current_sequence(model, event) then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.session.last_sequence = event.sequence
     return accepted()
@@ -1071,7 +1075,7 @@ function Machine:dispatch(event)
       or event.request_id == nil
       or (event.type == "clarification.requested" and not valid_clarification_request(event.request))
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     model.session.last_sequence = event.sequence
     local interaction = model.interaction
@@ -1102,7 +1106,7 @@ function Machine:dispatch(event)
       or event.request_id ~= interaction.request_id
       or interaction.session_id ~= model.session.live_id
     then
-      return { accepted = false, effects = {} }
+      return rejected()
     end
     interaction.phase = "responding"
     interaction.operation_id = self:next_operation_id()
@@ -1135,7 +1139,7 @@ function Machine:dispatch(event)
       },
     })
   end
-  return { accepted = false, effects = {} }
+  return rejected()
 end
 
 function M.new()
