@@ -4,7 +4,6 @@ local source = debug.getinfo(1, "S").source:sub(2)
 local plugin_root = vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(source)))
 
 M.defaults = {
-  enabled = true,
   session_store_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
   bridge_cmd = {
     "node",

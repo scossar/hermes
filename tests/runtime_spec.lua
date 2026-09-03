@@ -351,4 +351,22 @@ describe("Neovim Hermes effect runtime", function()
     success({})
     assert.is_true(stopped)
   end)
+
+  it("reports timer allocation failure before closing the live session", function()
+    local original_new_timer = vim.uv.new_timer
+    vim.uv.new_timer = function()
+      return nil
+    end
+    local runtime = load_runtime().new({
+      process = { stop = function() end },
+      rpc = { request = function() end },
+      dispatch = function() end,
+    })
+
+    local ok, err = pcall(runtime.run, runtime, { type = "bridge.close_session", session_id = "live-1" })
+
+    vim.uv.new_timer = original_new_timer
+    assert.is_false(ok)
+    assert.matches("could not create bridge close timer", err)
+  end)
 end)

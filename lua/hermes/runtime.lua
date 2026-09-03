@@ -162,17 +162,14 @@ function Runtime:run(effect)
     end
   elseif effect.type == "bridge.close_session" then
     local finished = false
-    local timer = vim.uv.new_timer()
+    local timer = assert(vim.uv.new_timer(), "could not create bridge close timer")
     local function finish()
       if finished then
         return
       end
       finished = true
-      if timer then
-        timer:stop()
-        timer:close()
-        timer = nil
-      end
+      timer:stop()
+      timer:close()
       if self.rpc and self.rpc.fail_pending then
         self.rpc.fail_pending({ code = -32000, message = "bridge stopped" })
       end
