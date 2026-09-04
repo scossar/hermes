@@ -185,7 +185,16 @@ npm run typecheck
 npm run build
 ```
 
-Lua tests use plenary.nvim; see `.github/workflows/ci.yml` for the complete command.
+Lua tests use plenary.nvim. Run the complete suite through the bounded test runner:
+
+```bash
+scripts/test
+```
+
+It uses `/tmp/plenary.nvim` by default. Set `PLENARY_DIR`, `NVIM_BIN`, or
+`TEST_TIMEOUT_SECONDS` to override the dependency path, Neovim executable, or
+120-second timeout. The runner terminates the test process group if the suite
+hangs, preventing abandoned headless Neovim processes.
 
 The controller/state-machine design, readiness terminology, recovery invariants,
 and portable conformance scenarios are documented in [ARCHITECTURE.md](ARCHITECTURE.md).

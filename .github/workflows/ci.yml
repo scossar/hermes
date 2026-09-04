@@ -36,9 +36,7 @@ jobs:
       - name: Run tests
         env:
           PLENARY_DIR: ${{ github.workspace }}/plenary.nvim
-        run: |
-          nvim --headless -u tests/minimal_init.lua \
-            -c "PlenaryBustedDirectory tests/ { minimal_init = 'tests/minimal_init.lua' }"
+        run: scripts/test
 
   bridge:
     runs-on: ubuntu-latest

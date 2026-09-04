@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$repo_root"
+
+nvim_bin=${NVIM_BIN:-nvim}
+plenary_dir=${PLENARY_DIR:-/tmp/plenary.nvim}
+timeout_seconds=${TEST_TIMEOUT_SECONDS:-120}
+
+if ! command -v "$nvim_bin" >/dev/null 2>&1; then
+  printf 'error: Neovim executable not found: %s\n' "$nvim_bin" >&2
+  printf 'set NVIM_BIN to the Neovim executable path\n' >&2
+  exit 127
+fi
+
+if [[ ! -d "$plenary_dir/lua/plenary" ]]; then
+  printf 'error: plenary.nvim not found at %s\n' "$plenary_dir" >&2
+  printf 'set PLENARY_DIR to the plenary.nvim checkout\n' >&2
+  exit 1
+fi
+
+if [[ ! "$timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'error: TEST_TIMEOUT_SECONDS must be a positive integer\n' >&2
+  exit 2
+fi
+
+export PLENARY_DIR="$plenary_dir"
+
+set +e
+timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" \
+  "$nvim_bin" --headless -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/ { minimal_init = 'tests/minimal_init.lua' }"
+status=$?
+set -e
+
+if [[ $status -eq 124 ]]; then
+  printf 'error: Lua test suite timed out after %s seconds\n' "$timeout_seconds" >&2
+fi
+
+exit "$status"
