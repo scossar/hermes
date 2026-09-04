@@ -1,4 +1,110 @@
 local M = {}
+
+---@alias HermesBridgePhase
+---| "stopped"
+---| "starting"
+---| "running"
+---| "stopping"
+
+---@alias HermesConnectionPhase
+---| "disconnected"
+---| "connecting"
+---| "ready"
+---| "disconnecting"
+
+---@alias HermesSessionPhase
+---| "none"
+---| "creating"
+---| "resuming"
+---| "clearing_stale"
+---| "persisting_activation"
+---| "active"
+---| "replacing"
+---| "persisting_replacement"
+
+---@alias HermesProjectionPhase
+---| "unhydrated"
+---| "hydrating"
+---| "ready"
+
+---@alias HermesTurnPhase
+---| "idle"
+---| "queued"
+---| "submitting"
+---| "running"
+---| "interrupting"
+
+---@alias HermesInteractionPhase
+---| "none"
+---| "approval"
+---| "clarification"
+---| "responding"
+
+---@class HermesBridgeModel
+---@field phase HermesBridgePhase
+---@field generation integer
+
+---@class HermesConnectionModel
+---@field phase HermesConnectionPhase
+---@field generation integer
+
+---@class HermesSessionModel
+---@field phase HermesSessionPhase
+---@field generation integer
+---@field live_id? string
+---@field durable_id? any
+---@field operation_id? integer
+---@field last_sequence number
+
+---@class HermesProjectionModel
+---@field phase HermesProjectionPhase
+---@field generation integer
+---@field session_id? string
+
+---@class HermesQueuedTurnRequest
+---@field submission_id any
+---@field text string
+---@field presentation any
+
+---@class HermesTurnModel
+---@field phase HermesTurnPhase
+---@field generation integer
+---@field session_id? string
+---@field submission_id? any
+---@field operation_id? integer
+---@field delimiter boolean
+---@field request? HermesQueuedTurnRequest
+
+---@class HermesPendingInteractionAnswer
+---@field question_id any
+---@field answer any
+
+---@class HermesInteractionModel
+---@field phase HermesInteractionPhase
+---@field generation integer
+---@field session_id? string
+---@field request_id? any
+---@field request? any
+---@field operation_id? integer
+---@field question_index? integer
+---@field answers? table<any, any>
+---@field pending_answer? HermesPendingInteractionAnswer
+---@field cancelled boolean
+
+---@class HermesClientModel
+---@field bridge HermesBridgeModel
+---@field connection HermesConnectionModel
+---@field session HermesSessionModel
+---@field projection HermesProjectionModel
+---@field turn HermesTurnModel
+---@field interaction HermesInteractionModel
+
+---@class HermesMachine
+---@field model HermesClientModel
+---@field operation_sequence integer
+---@field replacement? table
+---@field activation? table
+---@field pending_activation? table
 local Machine = {}
 Machine.__index = Machine
 
@@ -18,6 +124,7 @@ local function deep_copy(value, seen)
   return copy
 end
 
+---@return HermesClientModel
 local function initial_model()
   return {
     bridge = {
@@ -1225,6 +1332,7 @@ function Machine:dispatch(event)
   return handler(self, event)
 end
 
+---@return HermesMachine
 function M.new()
   return setmetatable({
     model = initial_model(),
