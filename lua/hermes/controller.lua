@@ -10,7 +10,7 @@ local M = {}
 ---@class HermesController
 ---@field machine HermesMachine
 ---@field run_effect fun(effect: HermesEffect)
----@field event_queue HermesMachineEvent[]
+---@field event_queue HermesEvent[]
 ---@field dispatching boolean
 local Controller = {}
 Controller.__index = Controller
@@ -20,7 +20,7 @@ function Controller:model()
   return self.machine.model
 end
 
----@param event HermesMachineEvent
+---@param event HermesEvent
 ---@return HermesControllerResult
 function Controller:dispatch(event)
   table.insert(self.event_queue, event)

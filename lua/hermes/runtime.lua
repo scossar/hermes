@@ -9,9 +9,9 @@
 ---@class HermesProtocolAdapter
 ---@field to_event fun(params: HermesWireEvent): HermesProtocolEvent?
 
----@class HermesRuntimeOptions
+---@class HermesRuntimeProductionOptions
 ---@field process table
----@field dispatch fun(event: HermesMachineEvent): HermesTransitionResult?
+---@field dispatch? fun(event: HermesEvent): HermesTransitionResult?
 ---@field rpc? table
 ---@field protocol? HermesProtocolAdapter
 ---@field session_store? table
@@ -27,13 +27,16 @@
 ---@field session_transition_settle? fun(accepted: boolean, live_id?: string, error?: string)
 ---@field notify? fun(message: string, level: HermesNotificationLevel)
 
+---@class HermesRuntimeOptions : HermesRuntimeProductionOptions
+---@field dispatch fun(event: HermesEvent): HermesTransitionResult?
+
 local M = {}
 
 ---@class HermesRuntime
 ---@field process table
----@field rpc table
----@field protocol HermesProtocolAdapter
----@field session_store table
+---@field rpc? table
+---@field protocol? HermesProtocolAdapter
+---@field session_store? table
 ---@field session_store_file? string
 ---@field session_store_file_provider? fun(): string
 ---@field bridge_command? string[]
@@ -45,7 +48,7 @@ local M = {}
 ---@field submission_settle fun(submission_id: HermesId, accepted: boolean)
 ---@field session_transition_settle fun(accepted: boolean, live_id?: string, error?: string)
 ---@field notify fun(message: string, level: HermesNotificationLevel)
----@field dispatch fun(event: HermesMachineEvent): HermesTransitionResult?
+---@field dispatch fun(event: HermesEvent): HermesTransitionResult?
 local Runtime = {}
 Runtime.__index = Runtime
 
@@ -345,7 +348,7 @@ function M.new(options)
   return runtime
 end
 
----@return HermesRuntimeOptions
+---@return HermesRuntimeProductionOptions
 function M.production_options()
   local buffer = require("hermes.buffer")
   local history = require("hermes.history")

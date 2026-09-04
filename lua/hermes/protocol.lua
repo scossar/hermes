@@ -1,12 +1,18 @@
 local M = {}
 
----@alias HermesProtocolEvent
----| HermesMessageDeltaEvent
----| HermesAgentActivityReceivedEvent
----| HermesMessageCompletedEvent
----| HermesProtocolUnknownEvent
----| HermesApprovalRequestedEvent
----| HermesClarificationRequestedEvent
+---@class HermesProtocolEvent : HermesEvent
+---@field session_id? any
+---@field sequence? any
+---@field text? string
+---@field request_id? any
+---@field request? table
+---@field activity_type? string
+---@field payload? table
+---@field wire_type? string
+---@field status? string
+---@field error? string
+---@field partial? boolean
+---@field recoverable? boolean
 
 ---@class HermesWireEvent
 ---@field type? any

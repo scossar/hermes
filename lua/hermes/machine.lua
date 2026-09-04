@@ -47,7 +47,7 @@ local M = {}
 ---@field selection? boolean
 
 ---@class HermesClarificationQuestion
----@field qid HermesId
+---@field qid? HermesId
 ---@field [string] any
 
 ---@class HermesApprovalRequest
@@ -285,7 +285,7 @@ local M = {}
 ---@field type "message.completed"
 ---@field status? string
 ---@field text? string
----@field error? string|HermesOperationError
+---@field error? any
 ---@field partial? boolean
 ---@field recoverable? boolean
 
@@ -383,7 +383,7 @@ local M = {}
 ---@field request? HermesQueuedTurnRequest
 
 ---@class HermesPendingInteractionAnswer
----@field question_id HermesId
+---@field question_id? HermesId
 ---@field answer any
 
 ---@class HermesInteractionModel
@@ -1594,11 +1594,10 @@ local function handle_message_completed(self, event)
     text = type(event.text) == "string" and event.text or nil,
     delimiter = turn.delimiter,
   }
-  local completion_error = event.error
-  if type(completion_error) == "string" then
-    finish.error = completion_error
-  elseif type(completion_error) == "table" and type(completion_error.message) == "string" then
-    finish.error = completion_error.message
+  if type(event.error) == "string" then
+    finish.error = event.error
+  elseif type(event.error) == "table" and type(event.error.message) == "string" then
+    finish.error = event.error.message
   end
   if event.partial ~= nil then
     finish.partial = event.partial
@@ -1742,7 +1741,7 @@ local event_handlers = {
   ["clarification.answered"] = handle_interaction_answered,
 }
 
----@param event HermesMachineEvent
+---@param event HermesEvent
 ---@return HermesTransitionResult
 function Machine:dispatch(event)
   local handler = event_handlers[event.type]
