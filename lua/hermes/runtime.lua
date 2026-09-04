@@ -1,11 +1,63 @@
+---@alias HermesNotificationLevel "error"|"warn"|"info"
+
+---@class HermesRequestContext
+---@field cols integer
+---@field cwd string
+---@field source string
+---@field title string
+
+---@class HermesProtocolAdapter
+---@field to_event fun(params: HermesWireEvent): HermesProtocolEvent?
+
+---@class HermesRuntimeOptions
+---@field process table
+---@field dispatch fun(event: HermesMachineEvent): HermesTransitionResult?
+---@field rpc? table
+---@field protocol? HermesProtocolAdapter
+---@field session_store? table
+---@field session_store_file? string
+---@field session_store_file_provider? fun(): string
+---@field bridge_command? string[]
+---@field bridge_command_provider? fun(): string[]
+---@field request_context? fun(): HermesRequestContext
+---@field projection? table
+---@field agent_events? table
+---@field interaction? table
+---@field submission_settle? fun(submission_id: HermesId, accepted: boolean)
+---@field session_transition_settle? fun(accepted: boolean, live_id?: string, error?: string)
+---@field notify? fun(message: string, level: HermesNotificationLevel)
+
 local M = {}
+
+---@class HermesRuntime
+---@field process table
+---@field rpc table
+---@field protocol HermesProtocolAdapter
+---@field session_store table
+---@field session_store_file? string
+---@field session_store_file_provider? fun(): string
+---@field bridge_command? string[]
+---@field bridge_command_provider? fun(): string[]
+---@field request_context fun(): HermesRequestContext
+---@field projection table
+---@field agent_events table
+---@field interaction table
+---@field submission_settle fun(submission_id: HermesId, accepted: boolean)
+---@field session_transition_settle fun(accepted: boolean, live_id?: string, error?: string)
+---@field notify fun(message: string, level: HermesNotificationLevel)
+---@field dispatch fun(event: HermesMachineEvent): HermesTransitionResult?
 local Runtime = {}
 Runtime.__index = Runtime
 
+---@param value any
+---@return string?
 local function nonempty_string(value)
   return type(value) == "string" and value ~= "" and value or nil
 end
 
+---@param effect HermesEffect
+---@param message string
+---@return string
 local function failed_turn_text(effect, message)
   local lines = { "> [!WARNING]", "> **Hermes turn failed**", ">", "> " .. message:gsub("\n", "\n> ") }
   if effect.recoverable then
@@ -17,6 +69,7 @@ local function failed_turn_text(effect, message)
   return table.concat(lines, "\n")
 end
 
+---@param effect HermesEffect
 function Runtime:run(effect)
   if effect.type == "rpc.request" then
     local params = effect.params or {}
@@ -250,6 +303,8 @@ function Runtime:run(effect)
   end
 end
 
+---@param options HermesRuntimeOptions
+---@return HermesRuntime
 function M.new(options)
   assert(type(options) == "table", "runtime options are required")
   assert(options.process, "runtime requires process adapter")
@@ -290,6 +345,7 @@ function M.new(options)
   return runtime
 end
 
+---@return HermesRuntimeOptions
 function M.production_options()
   local buffer = require("hermes.buffer")
   local history = require("hermes.history")

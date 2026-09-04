@@ -40,6 +40,313 @@ local M = {}
 ---| "clarification"
 ---| "responding"
 
+---@alias HermesId string|integer
+
+---@class HermesPresentation
+---@field delimiter? boolean
+---@field selection? boolean
+
+---@class HermesClarificationQuestion
+---@field qid HermesId
+---@field [string] any
+
+---@class HermesApprovalRequest
+---@field request_id HermesId
+---@field [string] any
+
+---@class HermesClarificationRequest
+---@field request_id HermesId
+---@field questions? HermesClarificationQuestion[]
+---@field answers? table<HermesId, any>
+---@field [string] any
+
+---@alias HermesInteractionRequest HermesApprovalRequest|HermesClarificationRequest
+
+---@class HermesActivation
+---@field messages? table[]
+---@field pending_approval? HermesApprovalRequest
+---@field pending_clarification? HermesClarificationRequest
+
+---@class HermesSessionReplacementDraft
+---@field old_live_id? string
+---@field old_durable_id? string
+---@field old_interaction HermesInteractionModel
+
+---@class HermesSessionReplacement : HermesSessionReplacementDraft
+---@field new_live_id string
+---@field new_durable_id string
+---@field messages? table[]
+
+---@alias HermesEffectType
+---| "rpc.request"
+---| "session_store.load"
+---| "session_store.save"
+---| "session_store.clear"
+---| "bridge.start"
+---| "bridge.close_session"
+---| "bridge.stop"
+---| "session.close_detached"
+---| "projection.show"
+---| "projection.hydrate"
+---| "projection.clear_for_new_session"
+---| "projection.append_user"
+---| "projection.begin_assistant"
+---| "projection.append_delta"
+---| "projection.finish"
+---| "submission.settle"
+---| "session_transition.settle"
+---| "agent_events.begin_turn"
+---| "agent_events.end_turn"
+---| "agent_events.render"
+---| "interaction.invalidate"
+---| "interaction.show_approval"
+---| "interaction.show_clarification"
+---| "notify"
+
+---@class HermesEffect
+---@field type HermesEffectType
+---@field operation_id? integer
+---@field method? string
+---@field params? table
+---@field bridge_generation? integer
+---@field connection_generation? integer
+---@field session_generation? integer
+---@field projection_generation? integer
+---@field turn_generation? integer
+---@field interaction_generation? integer
+---@field session_id? string
+---@field durable_id? string
+---@field live_id? string
+---@field submission_id? HermesId
+---@field messages? table[]
+---@field preserve_existing? boolean
+---@field replacement? boolean
+---@field activation? boolean
+---@field accepted? boolean
+---@field status? string
+---@field error? string
+---@field message? string
+---@field level? string
+---@field text? string
+---@field delimiter? boolean
+---@field partial? boolean
+---@field recoverable? boolean
+---@field activity_type? string
+---@field payload? table
+---@field request? HermesInteractionRequest
+---@field question? HermesClarificationQuestion|HermesClarificationRequest
+
+---@class HermesTransitionResult
+---@field accepted boolean
+---@field effects HermesEffect[]
+
+---@class HermesEvent
+---@field type string
+
+---@class HermesBridgeStartFailedEvent : HermesEvent
+---@field type "bridge.start_failed"
+---@field bridge_generation integer
+---@field connection_generation integer
+---@field error? string
+
+---@class HermesSessionStoreClearFailedEvent : HermesEvent
+---@field type "session_store.clear_failed"
+---@field operation_id integer
+---@field session_generation integer
+---@field error? string
+
+---@class HermesClientStopRequestedEvent : HermesEvent
+---@field type "client.stop_requested"
+
+---@class HermesClientInterruptRequestedEvent : HermesEvent
+---@field type "client.interrupt_requested"
+
+---@class HermesBridgeExitedEvent : HermesEvent
+---@field type "bridge.exited"
+---@field bridge_generation integer
+---@field connection_generation integer
+---@field code? integer
+
+---@class HermesClientNewSessionRequestedEvent : HermesEvent
+---@field type "client.new_session_requested"
+
+---@class HermesSessionReplacementCreatedEvent : HermesEvent
+---@field type "session.replacement_created"
+---@field operation_id integer
+---@field connection_generation integer
+---@field session_generation integer
+---@field live_id string
+---@field durable_id string
+---@field messages? table[]
+
+---@class HermesSessionStoreSavedEvent : HermesEvent
+---@field type "session_store.saved"
+---@field operation_id integer
+---@field session_generation integer
+---@field activation? boolean
+---@field replacement? boolean
+
+---@class HermesSessionStoreSaveFailedEvent : HermesEvent
+---@field type "session_store.save_failed"
+---@field operation_id integer
+---@field session_generation integer
+---@field activation? boolean
+---@field replacement? boolean
+---@field error? string
+
+---@class HermesSessionStoreClearedEvent : HermesEvent
+---@field type "session_store.cleared"
+---@field operation_id integer
+---@field session_generation integer
+
+---@class HermesClientOpenRequestedEvent : HermesEvent
+---@field type "client.open_requested"
+
+---@class HermesBridgeStartedEvent : HermesEvent
+---@field type "bridge.started"
+---@field bridge_generation integer
+---@field connection_generation? integer
+
+---@class HermesSessionStoreLoadedEvent : HermesEvent
+---@field type "session_store.loaded"
+---@field bridge_generation integer
+---@field connection_generation integer
+---@field durable_id? string
+
+---@class HermesSessionActivatedEvent : HermesEvent
+---@field type "session.activated"
+---@field bridge_generation integer
+---@field connection_generation integer
+---@field session_generation integer
+---@field operation_id integer
+---@field live_id string
+---@field durable_id string
+---@field messages? table[]
+---@field pending_approval? HermesApprovalRequest
+---@field pending_clarification? HermesClarificationRequest
+
+---@class HermesProjectionHydratedEvent : HermesEvent
+---@field type "projection.hydrated"
+---@field projection_generation integer
+---@field session_generation integer
+---@field session_id string
+
+---@class HermesProjectionHydrationFailedEvent : HermesEvent
+---@field type "projection.hydration_failed"
+---@field projection_generation integer
+---@field session_generation integer
+---@field session_id string
+---@field error? string
+
+---@class HermesPromptSubmittedEvent : HermesEvent
+---@field type "prompt.submitted"
+---@field submission_id HermesId
+---@field text string
+---@field presentation? HermesPresentation
+
+---@class HermesOperationError
+---@field code? integer
+---@field message? string
+
+---@class HermesOperationFailedEvent : HermesEvent
+---@field type "operation.failed"
+---@field operation_id integer
+---@field method? string
+---@field error? HermesOperationError
+---@field bridge_generation? integer
+---@field connection_generation? integer
+---@field session_generation? integer
+---@field turn_generation? integer
+---@field interaction_generation? integer
+
+---@class HermesOperationSucceededEvent : HermesEvent
+---@field type "operation.succeeded"
+---@field operation_id integer
+---@field result? any
+---@field connection_generation? integer
+---@field session_generation? integer
+---@field turn_generation? integer
+---@field interaction_generation? integer
+
+---@class HermesSequencedEvent : HermesEvent
+---@field session_id string
+---@field sequence number
+
+---@class HermesMessageDeltaEvent : HermesSequencedEvent
+---@field type "message.delta"
+---@field text? string
+
+---@class HermesAgentActivityReceivedEvent : HermesSequencedEvent
+---@field type "agent_activity.received"
+---@field activity_type string
+---@field payload? table
+
+---@class HermesMessageCompletedEvent : HermesSequencedEvent
+---@field type "message.completed"
+---@field status? string
+---@field text? string
+---@field error? string|HermesOperationError
+---@field partial? boolean
+---@field recoverable? boolean
+
+---@class HermesProtocolUnknownEvent : HermesSequencedEvent
+---@field type "protocol.unknown"
+---@field wire_type? string
+---@field payload? table
+
+---@class HermesApprovalRequestedEvent : HermesSequencedEvent
+---@field type "approval.requested"
+---@field request_id HermesId
+---@field request HermesApprovalRequest
+
+---@class HermesClarificationRequestedEvent : HermesSequencedEvent
+---@field type "clarification.requested"
+---@field request_id HermesId
+---@field request HermesClarificationRequest
+
+---@class HermesApprovalAnsweredEvent : HermesEvent
+---@field type "approval.answered"
+---@field interaction_generation integer
+---@field request_id HermesId
+---@field choice string
+
+---@class HermesClarificationAnsweredEvent : HermesEvent
+---@field type "clarification.answered"
+---@field interaction_generation integer
+---@field request_id HermesId
+---@field question_id? HermesId
+---@field answer? string
+---@field cancelled? boolean
+
+---@alias HermesMachineEvent
+---| HermesBridgeStartFailedEvent
+---| HermesSessionStoreClearFailedEvent
+---| HermesClientStopRequestedEvent
+---| HermesClientInterruptRequestedEvent
+---| HermesBridgeExitedEvent
+---| HermesClientNewSessionRequestedEvent
+---| HermesSessionReplacementCreatedEvent
+---| HermesSessionStoreSavedEvent
+---| HermesSessionStoreSaveFailedEvent
+---| HermesSessionStoreClearedEvent
+---| HermesClientOpenRequestedEvent
+---| HermesBridgeStartedEvent
+---| HermesSessionStoreLoadedEvent
+---| HermesSessionActivatedEvent
+---| HermesProjectionHydratedEvent
+---| HermesProjectionHydrationFailedEvent
+---| HermesPromptSubmittedEvent
+---| HermesOperationFailedEvent
+---| HermesOperationSucceededEvent
+---| HermesMessageDeltaEvent
+---| HermesAgentActivityReceivedEvent
+---| HermesMessageCompletedEvent
+---| HermesProtocolUnknownEvent
+---| HermesApprovalRequestedEvent
+---| HermesClarificationRequestedEvent
+---| HermesApprovalAnsweredEvent
+---| HermesClarificationAnsweredEvent
+
 ---@class HermesBridgeModel
 ---@field phase HermesBridgePhase
 ---@field generation integer
@@ -52,7 +359,7 @@ local M = {}
 ---@field phase HermesSessionPhase
 ---@field generation integer
 ---@field live_id? string
----@field durable_id? any
+---@field durable_id? string
 ---@field operation_id? integer
 ---@field last_sequence number
 
@@ -62,32 +369,32 @@ local M = {}
 ---@field session_id? string
 
 ---@class HermesQueuedTurnRequest
----@field submission_id any
+---@field submission_id HermesId
 ---@field text string
----@field presentation any
+---@field presentation HermesPresentation
 
 ---@class HermesTurnModel
 ---@field phase HermesTurnPhase
 ---@field generation integer
 ---@field session_id? string
----@field submission_id? any
+---@field submission_id? HermesId
 ---@field operation_id? integer
 ---@field delimiter boolean
 ---@field request? HermesQueuedTurnRequest
 
 ---@class HermesPendingInteractionAnswer
----@field question_id any
+---@field question_id HermesId
 ---@field answer any
 
 ---@class HermesInteractionModel
 ---@field phase HermesInteractionPhase
 ---@field generation integer
 ---@field session_id? string
----@field request_id? any
----@field request? any
+---@field request_id? HermesId
+---@field request? HermesInteractionRequest
 ---@field operation_id? integer
 ---@field question_index? integer
----@field answers? table<any, any>
+---@field answers? table<HermesId, any>
 ---@field pending_answer? HermesPendingInteractionAnswer
 ---@field cancelled boolean
 
@@ -102,12 +409,16 @@ local M = {}
 ---@class HermesMachine
 ---@field model HermesClientModel
 ---@field operation_sequence integer
----@field replacement? table
----@field activation? table
----@field pending_activation? table
+---@field replacement? HermesSessionReplacementDraft|HermesSessionReplacement
+---@field activation? HermesActivation
+---@field pending_activation? HermesActivation
 local Machine = {}
 Machine.__index = Machine
 
+---@generic T
+---@param value T
+---@param seen? table<any, any>
+---@return T
 local function deep_copy(value, seen)
   if type(value) ~= "table" then
     return value
@@ -172,14 +483,18 @@ local function initial_model()
   }
 end
 
+---@param effects? HermesEffect[]
+---@return HermesTransitionResult
 local function accepted(effects)
   return { accepted = true, effects = effects or {} }
 end
 
+---@return HermesTransitionResult
 local function rejected()
   return { accepted = false, effects = {} }
 end
 
+---@param turn HermesTurnModel
 local function reset_turn(turn)
   turn.phase = "idle"
   turn.session_id = nil
@@ -189,6 +504,7 @@ local function reset_turn(turn)
   turn.request = nil
 end
 
+---@param interaction HermesInteractionModel
 local function reset_interaction(interaction)
   interaction.phase = "none"
   interaction.session_id = nil
@@ -201,6 +517,7 @@ local function reset_interaction(interaction)
   interaction.cancelled = false
 end
 
+---@param session HermesSessionModel
 local function reset_session_runtime(session)
   session.phase = "none"
   session.live_id = nil
@@ -208,14 +525,20 @@ local function reset_session_runtime(session)
   session.last_sequence = 0
 end
 
+---@param projection HermesProjectionModel
 local function reset_projection(projection)
   projection.phase = "unhydrated"
   projection.session_id = nil
 end
 
+---@param model HermesClientModel
+---@param effects HermesEffect[]
+---@param status string
+---@param message string
 local function queued_failure(model, effects, status, message)
   if model.turn.phase == "queued" then
     local request = model.turn.request
+    ---@cast request HermesQueuedTurnRequest
     table.insert(effects, { type = "submission.settle", submission_id = request.submission_id, accepted = false })
     table.insert(effects, {
       type = "projection.finish",
@@ -226,6 +549,9 @@ local function queued_failure(model, effects, status, message)
   end
 end
 
+---@param self HermesMachine
+---@param messages? table[]
+---@return HermesEffect
 local function begin_hydration(self, messages)
   local model = self.model
   model.projection.generation = model.projection.generation + 1
@@ -244,6 +570,9 @@ local function begin_hydration(self, messages)
   }
 end
 
+---@param model HermesClientModel
+---@param event HermesSequencedEvent
+---@return boolean
 local function current_sequence(model, event)
   return model.session.phase == "active"
     and event.session_id == model.session.live_id
@@ -251,8 +580,11 @@ local function current_sequence(model, event)
     and event.sequence > model.session.last_sequence
 end
 
+---@param interaction HermesInteractionModel
+---@return HermesClarificationQuestion|HermesClarificationRequest|nil
 local function clarification_question(interaction)
   local request = interaction.request or {}
+  ---@cast request HermesClarificationRequest
   local questions = type(request.questions) == "table" and request.questions or nil
   if not questions or #questions == 0 then
     return request
@@ -266,6 +598,8 @@ local function clarification_question(interaction)
   return questions[index]
 end
 
+---@param request any
+---@return boolean
 local function valid_clarification_request(request)
   if type(request) ~= "table" then
     return false
@@ -284,6 +618,8 @@ local function valid_clarification_request(request)
   return true
 end
 
+---@param event HermesSessionActivatedEvent
+---@return boolean
 local function valid_activation_payload(event)
   if event.messages ~= nil then
     if type(event.messages) ~= "table" then
@@ -314,6 +650,8 @@ local function valid_activation_payload(event)
   return true
 end
 
+---@param interaction HermesInteractionModel
+---@return HermesEffect?
 local function clarification_effect(interaction)
   local question = clarification_question(interaction)
   if not question then
@@ -328,11 +666,14 @@ local function clarification_effect(interaction)
   }
 end
 
+---@return integer
 function Machine:next_operation_id()
   self.operation_sequence = self.operation_sequence + 1
   return self.operation_sequence
 end
 
+---@param request HermesQueuedTurnRequest
+---@param effects HermesEffect[]
 function Machine:start_turn(request, effects)
   local model = self.model
   local turn = model.turn
@@ -359,6 +700,9 @@ function Machine:start_turn(request, effects)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesBridgeStartFailedEvent
+---@return HermesTransitionResult
 local function handle_bridge_start_failed(self, event)
   local model = self.model
   if
@@ -371,6 +715,7 @@ local function handle_bridge_start_failed(self, event)
   local effects = {}
   if model.turn.phase == "queued" then
     local request = model.turn.request
+    ---@cast request HermesQueuedTurnRequest
     table.insert(effects, { type = "submission.settle", submission_id = request.submission_id, accepted = false })
     table.insert(effects, {
       type = "projection.finish",
@@ -388,6 +733,9 @@ local function handle_bridge_start_failed(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesSessionStoreClearFailedEvent
+---@return HermesTransitionResult
 local function handle_session_store_clear_failed(self, event)
   local model = self.model
   local session = model.session
@@ -402,6 +750,7 @@ local function handle_session_store_clear_failed(self, event)
   local effects = { { type = "notify", level = "error", message = "could not clear stale session: " .. message } }
   if model.turn.phase == "queued" then
     local request = model.turn.request
+    ---@cast request HermesQueuedTurnRequest
     table.insert(effects, 1, { type = "submission.settle", submission_id = request.submission_id, accepted = false })
     table.insert(effects, 2, {
       type = "projection.finish",
@@ -421,6 +770,8 @@ local function handle_session_store_clear_failed(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@return HermesTransitionResult
 local function handle_client_stop_requested(self)
   local model = self.model
   if model.bridge.phase == "stopped" or model.bridge.phase == "stopping" then
@@ -453,6 +804,8 @@ local function handle_client_stop_requested(self)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@return HermesTransitionResult
 local function handle_client_interrupt_requested(self)
   local model = self.model
   local turn = model.turn
@@ -476,6 +829,9 @@ local function handle_client_interrupt_requested(self)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesBridgeExitedEvent
+---@return HermesTransitionResult
 local function handle_bridge_exited(self, event)
   local model = self.model
   if
@@ -511,6 +867,8 @@ local function handle_bridge_exited(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@return HermesTransitionResult
 local function handle_client_new_session_requested(self)
   local model = self.model
   local session = model.session
@@ -543,6 +901,9 @@ local function handle_client_new_session_requested(self)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesSessionReplacementCreatedEvent
+---@return HermesTransitionResult
 local function handle_session_replacement_created(self, event)
   local model = self.model
   local session = model.session
@@ -573,6 +934,9 @@ local function handle_session_replacement_created(self, event)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesSessionStoreSavedEvent
+---@return HermesTransitionResult
 local function handle_session_store_saved(self, event)
   local model = self.model
   local session = model.session
@@ -601,6 +965,7 @@ local function handle_session_store_saved(self, event)
     return rejected()
   end
   local replacement = self.replacement
+  ---@cast replacement HermesSessionReplacement
   session.phase = "active"
   session.live_id = replacement.new_live_id
   session.durable_id = replacement.new_durable_id
@@ -618,6 +983,9 @@ local function handle_session_store_saved(self, event)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesSessionStoreSaveFailedEvent
+---@return HermesTransitionResult
 local function handle_session_store_save_failed(self, event)
   local model = self.model
   local session = model.session
@@ -669,6 +1037,9 @@ local function handle_session_store_save_failed(self, event)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesSessionStoreClearedEvent
+---@return HermesTransitionResult
 local function handle_session_store_cleared(self, event)
   local model = self.model
   local session = model.session
@@ -696,6 +1067,8 @@ local function handle_session_store_cleared(self, event)
   })
 end
 
+---@param self HermesMachine
+---@return HermesTransitionResult
 local function handle_client_open_requested(self)
   local model = self.model
   if model.bridge.phase == "stopping" then
@@ -720,6 +1093,9 @@ local function handle_client_open_requested(self)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesBridgeStartedEvent
+---@return HermesTransitionResult
 local function handle_bridge_started(self, event)
   local model = self.model
   if model.bridge.phase ~= "starting" or event.bridge_generation ~= model.bridge.generation then
@@ -735,6 +1111,9 @@ local function handle_bridge_started(self, event)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesSessionStoreLoadedEvent
+---@return HermesTransitionResult
 local function handle_session_store_loaded(self, event)
   local model = self.model
   if
@@ -763,6 +1142,9 @@ local function handle_session_store_loaded(self, event)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesSessionActivatedEvent
+---@return HermesTransitionResult
 local function handle_session_activated(self, event)
   local model = self.model
   local session = model.session
@@ -818,6 +1200,9 @@ local function handle_session_activated(self, event)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesProjectionHydratedEvent
+---@return HermesTransitionResult
 local function handle_projection_hydrated(self, event)
   local model = self.model
   if
@@ -862,6 +1247,9 @@ local function handle_projection_hydrated(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesProjectionHydrationFailedEvent
+---@return HermesTransitionResult
 local function handle_projection_hydration_failed(self, event)
   local model = self.model
   if
@@ -887,6 +1275,9 @@ local function handle_projection_hydration_failed(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesPromptSubmittedEvent
+---@return HermesTransitionResult
 local function handle_prompt_submitted(self, event)
   local model = self.model
   local turn = model.turn
@@ -929,6 +1320,9 @@ local function handle_prompt_submitted(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesOperationFailedEvent
+---@return HermesTransitionResult
 local function handle_operation_failed(self, event)
   local model = self.model
   local session = model.session
@@ -1056,6 +1450,9 @@ local function handle_operation_failed(self, event)
   return rejected()
 end
 
+---@param self HermesMachine
+---@param event HermesOperationSucceededEvent
+---@return HermesTransitionResult
 local function handle_operation_succeeded(self, event)
   local model = self.model
   local interaction = model.interaction
@@ -1118,6 +1515,9 @@ local function handle_operation_succeeded(self, event)
   })
 end
 
+---@param self HermesMachine
+---@param event HermesMessageDeltaEvent
+---@return HermesTransitionResult
 local function handle_message_delta(self, event)
   local model = self.model
   local turn = model.turn
@@ -1141,6 +1541,9 @@ local function handle_message_delta(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesAgentActivityReceivedEvent
+---@return HermesTransitionResult
 local function handle_agent_activity_received(self, event)
   local model = self.model
   local turn = model.turn
@@ -1168,6 +1571,9 @@ local function handle_agent_activity_received(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesMessageCompletedEvent
+---@return HermesTransitionResult
 local function handle_message_completed(self, event)
   local model = self.model
   local turn = model.turn
@@ -1181,16 +1587,18 @@ local function handle_message_completed(self, event)
     return rejected()
   end
   model.session.last_sequence = event.sequence
+  ---@type HermesEffect
   local finish = {
     type = "projection.finish",
     status = type(event.status) == "string" and event.status or "complete",
     text = type(event.text) == "string" and event.text or nil,
     delimiter = turn.delimiter,
   }
-  if type(event.error) == "string" then
-    finish.error = event.error
-  elseif type(event.error) == "table" and type(event.error.message) == "string" then
-    finish.error = event.error.message
+  local completion_error = event.error
+  if type(completion_error) == "string" then
+    finish.error = completion_error
+  elseif type(completion_error) == "table" and type(completion_error.message) == "string" then
+    finish.error = completion_error.message
   end
   if event.partial ~= nil then
     finish.partial = event.partial
@@ -1208,6 +1616,9 @@ local function handle_message_completed(self, event)
   return accepted(effects)
 end
 
+---@param self HermesMachine
+---@param event HermesProtocolUnknownEvent
+---@return HermesTransitionResult
 local function handle_protocol_unknown(self, event)
   local model = self.model
   if not current_sequence(model, event) then
@@ -1217,6 +1628,9 @@ local function handle_protocol_unknown(self, event)
   return accepted()
 end
 
+---@param self HermesMachine
+---@param event HermesApprovalRequestedEvent|HermesClarificationRequestedEvent
+---@return HermesTransitionResult
 local function handle_interaction_requested(self, event)
   local model = self.model
   if
@@ -1249,6 +1663,9 @@ local function handle_interaction_requested(self, event)
   return accepted(effect and { effect } or {})
 end
 
+---@param self HermesMachine
+---@param event HermesApprovalAnsweredEvent|HermesClarificationAnsweredEvent
+---@return HermesTransitionResult
 local function handle_interaction_answered(self, event)
   local model = self.model
   local interaction = model.interaction
@@ -1294,6 +1711,7 @@ local function handle_interaction_answered(self, event)
   })
 end
 
+---@type table<string, fun(self: HermesMachine, event: any): HermesTransitionResult>
 local event_handlers = {
   ["bridge.start_failed"] = handle_bridge_start_failed,
   ["session_store.clear_failed"] = handle_session_store_clear_failed,
@@ -1324,6 +1742,8 @@ local event_handlers = {
   ["clarification.answered"] = handle_interaction_answered,
 }
 
+---@param event HermesMachineEvent
+---@return HermesTransitionResult
 function Machine:dispatch(event)
   local handler = event_handlers[event.type]
   if not handler then

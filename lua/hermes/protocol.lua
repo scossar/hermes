@@ -1,5 +1,21 @@
 local M = {}
 
+---@alias HermesProtocolEvent
+---| HermesMessageDeltaEvent
+---| HermesAgentActivityReceivedEvent
+---| HermesMessageCompletedEvent
+---| HermesProtocolUnknownEvent
+---| HermesApprovalRequestedEvent
+---| HermesClarificationRequestedEvent
+
+---@class HermesWireEvent
+---@field type? any
+---@field session_id? any
+---@field seq? any
+---@field payload? any
+
+---@param payload table<string, any>
+---@return boolean
 local function valid_clarification_payload(payload)
   if payload.questions == nil then
     return true
@@ -15,6 +31,8 @@ local function valid_clarification_payload(payload)
   return true
 end
 
+---@param params HermesWireEvent
+---@return HermesProtocolEvent?
 function M.to_event(params)
   if type(params) ~= "table" then
     return nil

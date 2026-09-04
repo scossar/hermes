@@ -1,11 +1,27 @@
+---@class HermesControllerResult : HermesTransitionResult
+---@field queued? boolean
+
+---@class HermesControllerOptions
+---@field machine HermesMachine
+---@field run_effect fun(effect: HermesEffect)
+
 local M = {}
+
+---@class HermesController
+---@field machine HermesMachine
+---@field run_effect fun(effect: HermesEffect)
+---@field event_queue HermesMachineEvent[]
+---@field dispatching boolean
 local Controller = {}
 Controller.__index = Controller
 
+---@return HermesClientModel
 function Controller:model()
   return self.machine.model
 end
 
+---@param event HermesMachineEvent
+---@return HermesControllerResult
 function Controller:dispatch(event)
   table.insert(self.event_queue, event)
   if self.dispatching then
@@ -28,9 +44,12 @@ function Controller:dispatch(event)
   if not ok then
     error(err, 0)
   end
+  ---@cast first_result HermesControllerResult
   return first_result
 end
 
+---@param options HermesControllerOptions
+---@return HermesController
 function M.new(options)
   assert(type(options) == "table" and options.machine, "controller requires a machine")
   assert(type(options.run_effect) == "function", "controller requires an effect runner")
