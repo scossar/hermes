@@ -101,12 +101,29 @@ Send visually selected text by selecting it and running:
 :'<,'>HermesSendSelection
 ```
 
-The command is designed for a visual-mode mapping. For example:
+The command is designed for a visual-mode mapping. Example mappings for
+composing prompts, sending selections, and submitting from the Compose buffer:
 
 ```lua
-vim.keymap.set("v", "<leader>z", ":HermesSendSelection<CR>", {
-  desc = "Send selection to Hermes",
+vim.keymap.set("n", "<leader>hc", "<cmd>HermesCompose<CR>", {
+  desc = "Hermes compose",
   silent = true,
+})
+
+vim.keymap.set("x", "<leader>hs", ":HermesSendSelection<CR>", {
+  desc = "Hermes send selection",
+  silent = true,
+})
+
+vim.api.nvim_create_autocmd("BufEnter", {
+  pattern = "hermes://compose",
+  callback = function(event)
+    vim.keymap.set("n", "<leader>hs", "<cmd>HermesSubmit<CR>", {
+      buffer = event.buf,
+      desc = "Hermes submit",
+      silent = true,
+    })
+  end,
 })
 ```
 
