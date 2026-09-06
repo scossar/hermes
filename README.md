@@ -119,15 +119,14 @@ Save the complete chat buffer or the current visual selection as Markdown:
 
 ```vim
 :HermesSaveTranscript ~/obsidian_vault hermes-chat
-:'<,'>HermesSaveSelection ~/projects/python/notes excerpt append
+:'<,'>HermesSaveSelection ~/projects/python/notes excerpt
 ```
 
-Both commands take `path`, `filename`, and an optional `append` or `overwrite`
-argument. A filename without an extension receives `.md`; an existing extension
-is preserved. If the target file already exists and no mode was supplied, the
-plugin asks whether to append, overwrite, or cancel. Paths configured in
-`transcript_directories` are available through command-line tab completion, but
-other existing directories are accepted when entered directly.
+Both commands take `path` and `filename`. A filename without an extension
+receives `.md`; an existing extension is preserved. If the target file already
+exists, the plugin asks whether to append, overwrite, or cancel. Paths configured
+in `transcript_directories` are available through command-line tab completion,
+but other existing directories are accepted when entered directly.
 
 The prompt and streamed response appear in an unlisted temporary Markdown buffer named `hermes://chat`.
 

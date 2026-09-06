@@ -64,16 +64,16 @@ be supplied directly.
 :HermesNew                  End the current live connection, clear its saved
                             local association, and create a new conversation.
 
-:HermesSaveTranscript {path} {filename} [append|overwrite]
+:HermesSaveTranscript {path} {filename}
                             Save the complete `hermes://chat` buffer as a
                             Markdown file.
 
-:'<,'>HermesSaveSelection {path} {filename} [append|overwrite]
+:'<,'>HermesSaveSelection {path} {filename}
                             Save the current visual selection as Markdown.
 
 For both save commands, `.md` is appended when {filename} has no extension.
-When the target exists and no mode is given, hermes.nvim asks whether to
-append, overwrite, or cancel. Directories in `transcript_directories` are
+When the target exists, hermes.nvim asks whether to append, overwrite, or
+cancel. Directories in `transcript_directories` are
 offered through tab completion; other existing directories remain valid.
 
 ==============================================================================

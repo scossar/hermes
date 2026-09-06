@@ -2,11 +2,6 @@ local config = require("hermes.config")
 
 local M = {}
 
-local valid_modes = {
-  append = true,
-  overwrite = true,
-}
-
 local function notify_error(message)
   vim.notify("hermes: " .. message, vim.log.levels.ERROR)
 end
@@ -28,11 +23,7 @@ local function write(lines, target, mode)
   return target
 end
 
-local function save_existing(lines, target, mode)
-  if mode then
-    return write(lines, target, mode)
-  end
-
+local function save_existing(lines, target)
   vim.ui.select({ "append", "overwrite", "cancel" }, {
     prompt = target .. " already exists. How should it be saved?",
   }, function(choice)
@@ -43,11 +34,7 @@ local function save_existing(lines, target, mode)
   return nil
 end
 
-function M.save(lines, directory, filename, mode)
-  if mode ~= nil and not valid_modes[mode] then
-    notify_error("save mode must be append or overwrite")
-    return false
-  end
+function M.save(lines, directory, filename)
   if directory == "" or filename == "" then
     notify_error("path and filename are required")
     return false
@@ -67,9 +54,9 @@ function M.save(lines, directory, filename, mode)
     return false
   end
   if target_stat then
-    return save_existing(lines, target, mode)
+    return save_existing(lines, target)
   end
-  return write(lines, target, mode or "overwrite")
+  return write(lines, target, "overwrite")
 end
 
 local function argument_index(command_line, cursor_position)
@@ -109,11 +96,6 @@ end
 
 function M.complete(arg_lead, command_line, cursor_position)
   local index = argument_index(command_line, cursor_position)
-  if index == 3 then
-    local results = {}
-    add_matching(results, {}, { "append", "overwrite" }, arg_lead)
-    return results
-  end
   if index ~= 1 then
     return {}
   end

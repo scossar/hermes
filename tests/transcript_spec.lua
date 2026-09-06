@@ -25,29 +25,32 @@ describe("transcript export", function()
   end)
 
   it("writes markdown and appends the extension when the filename has none", function()
-    local path = transcript.save({ "# Chat", "", "Hello" }, directory, "conversation", "overwrite")
+    local path = transcript.save({ "# Chat", "", "Hello" }, directory, "conversation")
 
     assert.equals(directory .. "/conversation.md", path)
     assert.same({ "# Chat", "", "Hello" }, read_lines(path))
   end)
 
   it("preserves an existing filename extension", function()
-    local path = transcript.save({ "Chat" }, directory, "conversation.markdown", "overwrite")
+    local path = transcript.save({ "Chat" }, directory, "conversation.markdown")
 
     assert.equals(directory .. "/conversation.markdown", path)
     assert.same({ "Chat" }, read_lines(path))
   end)
 
-  it("appends when append is explicit", function()
+  it("appends when append is chosen for an existing file", function()
     local path = directory .. "/conversation.md"
     vim.fn.writefile({ "Existing" }, path)
+    vim.ui.select = function(_, _, callback)
+      callback("append")
+    end
 
-    transcript.save({ "Added" }, directory, "conversation", "append")
+    transcript.save({ "Added" }, directory, "conversation")
 
     assert.same({ "Existing", "Added" }, read_lines(path))
   end)
 
-  it("asks before replacing an existing file when no mode is supplied", function()
+  it("asks before replacing an existing file", function()
     local path = directory .. "/conversation.md"
     local choices
     local options
@@ -77,19 +80,6 @@ describe("transcript export", function()
     assert.same({ "Existing" }, read_lines(path))
   end)
 
-  it("rejects unsupported save modes", function()
-    local notifications = {}
-    vim.notify = function(message, level)
-      table.insert(notifications, { message = message, level = level })
-    end
-
-    local result = transcript.save({ "Chat" }, directory, "conversation", "replace")
-
-    assert.is_false(result)
-    assert.matches("append or overwrite", notifications[1].message)
-    assert.equals(vim.log.levels.ERROR, notifications[1].level)
-  end)
-
   it("completes configured transcript directories without restricting other paths", function()
     config.options.transcript_directories = { "~/obsidian_vault", "~/projects/python/notes" }
 
@@ -98,17 +88,6 @@ describe("transcript export", function()
       transcript.complete("~/o", "HermesSaveTranscript ~/o", #"HermesSaveTranscript ~/o")
     )
     assert.same({}, transcript.complete("notes", "HermesSaveTranscript /tmp notes", #"HermesSaveTranscript /tmp notes"))
-    assert.same(
-      { "append", "overwrite" },
-      transcript.complete("", "HermesSaveTranscript /tmp notes ", #"HermesSaveTranscript /tmp notes ")
-    )
-    assert.same(
-      { "append", "overwrite" },
-      transcript.complete(
-        "",
-        "HermesSaveTranscript ~/my\\ notes excerpt ",
-        #"HermesSaveTranscript ~/my\\ notes excerpt "
-      )
-    )
+    assert.same({}, transcript.complete("", "HermesSaveTranscript /tmp notes ", #"HermesSaveTranscript /tmp notes "))
   end)
 end)

@@ -38,11 +38,11 @@ end, {
 })
 
 local function save_command(command, method, opts)
-  if #opts.fargs < 2 or #opts.fargs > 3 then
-    vim.notify("hermes: usage: :" .. command .. " path filename [append|overwrite]", vim.log.levels.ERROR)
+  if #opts.fargs ~= 2 then
+    vim.notify("hermes: usage: :" .. command .. " path filename", vim.log.levels.ERROR)
     return
   end
-  require("hermes")[method](opts.fargs[1], opts.fargs[2], opts.fargs[3])
+  require("hermes")[method](opts.fargs[1], opts.fargs[2])
 end
 
 local function complete_save(arg_lead, command_line, cursor_position)

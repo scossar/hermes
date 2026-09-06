@@ -98,17 +98,16 @@ describe("hermes.nvim", function()
     local saved
     local bufnr = buffer.ensure_buffer()
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "# Transcript", "", "Complete chat" })
-    transcript.save = function(lines, path, filename, mode)
-      saved = { lines = lines, path = path, filename = filename, mode = mode }
+    transcript.save = function(lines, path, filename)
+      saved = { lines = lines, path = path, filename = filename }
     end
 
-    hermes.save_transcript("~/notes", "chat", "append")
+    hermes.save_transcript("~/notes", "chat")
 
     assert.same({
       lines = { "# Transcript", "", "Complete chat" },
       path = "~/notes",
       filename = "chat",
-      mode = "append",
     }, saved)
   end)
 
@@ -117,17 +116,16 @@ describe("hermes.nvim", function()
     selection.current = function()
       return "Selected\ntext"
     end
-    transcript.save = function(lines, path, filename, mode)
-      saved = { lines = lines, path = path, filename = filename, mode = mode }
+    transcript.save = function(lines, path, filename)
+      saved = { lines = lines, path = path, filename = filename }
     end
 
-    hermes.save_selection("~/notes", "selection.md", "overwrite")
+    hermes.save_selection("~/notes", "selection.md")
 
     assert.same({
       lines = { "Selected", "text" },
       path = "~/notes",
       filename = "selection.md",
-      mode = "overwrite",
     }, saved)
   end)
 

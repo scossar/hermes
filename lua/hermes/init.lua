@@ -38,17 +38,17 @@ function M.ask_selection()
   app():submit(selection.current(), { selection = true, delimiter = true })
 end
 
-function M.save_transcript(path, filename, mode)
+function M.save_transcript(path, filename)
   ensure_setup()
   local bufnr = buffer.ensure_buffer()
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  return transcript.save(lines, path, filename, mode)
+  return transcript.save(lines, path, filename)
 end
 
-function M.save_selection(path, filename, mode)
+function M.save_selection(path, filename)
   ensure_setup()
   local lines = vim.split(selection.current(), "\n", { plain = true })
-  return transcript.save(lines, path, filename, mode)
+  return transcript.save(lines, path, filename)
 end
 
 function M.open()
