@@ -24,6 +24,9 @@ local function render()
     end
     table.insert(lines, line)
   end
+  if #lines > 0 and lines[#lines] ~= "" then
+    table.insert(lines, "")
+  end
   buffer.set_event("agent-events", lines)
 end
 
