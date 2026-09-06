@@ -8,18 +8,21 @@ end
 describe("transcript export", function()
   local directory
   local original_select
+  local original_confirm
   local original_notify
 
   before_each(function()
     directory = vim.fn.tempname()
     assert.equals(1, vim.fn.mkdir(directory, "p"))
     original_select = vim.ui.select
+    original_confirm = vim.fn.confirm
     original_notify = vim.notify
     config.options = vim.tbl_deep_extend("force", {}, config.defaults)
   end)
 
   after_each(function()
     vim.ui.select = original_select
+    vim.fn.confirm = original_confirm
     vim.notify = original_notify
     vim.fn.delete(directory, "rf")
   end)
@@ -41,8 +44,8 @@ describe("transcript export", function()
   it("appends when append is chosen for an existing file", function()
     local path = directory .. "/conversation.md"
     vim.fn.writefile({ "Existing" }, path)
-    vim.ui.select = function(_, _, callback)
-      callback("append")
+    vim.fn.confirm = function()
+      return 1
     end
 
     transcript.save({ "Added" }, directory, "conversation")
@@ -55,24 +58,28 @@ describe("transcript export", function()
     local choices
     local options
     vim.fn.writefile({ "Existing" }, path)
-    vim.ui.select = function(items, opts, callback)
+    vim.ui.select = function()
+      error("vim.ui.select should not be called for file confirmation")
+    end
+    vim.fn.confirm = function(message, items, default)
+      options = { prompt = message, default = default }
       choices = items
-      options = opts
-      callback("overwrite")
+      return 2
     end
 
     transcript.save({ "Replacement" }, directory, "conversation")
 
-    assert.same({ "append", "overwrite", "cancel" }, choices)
+    assert.equals("&Append\n&Overwrite\n&Cancel", choices)
     assert.matches("already exists", options.prompt)
+    assert.equals(3, options.default)
     assert.same({ "Replacement" }, read_lines(path))
   end)
 
   it("leaves an existing file unchanged when the prompt is cancelled", function()
     local path = directory .. "/conversation.md"
     vim.fn.writefile({ "Existing" }, path)
-    vim.ui.select = function(_, _, callback)
-      callback("cancel")
+    vim.fn.confirm = function()
+      return 3
     end
 
     transcript.save({ "Replacement" }, directory, "conversation")

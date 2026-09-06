@@ -24,13 +24,13 @@ local function write(lines, target, mode)
 end
 
 local function save_existing(lines, target)
-  vim.ui.select({ "append", "overwrite", "cancel" }, {
-    prompt = target .. " already exists. How should it be saved?",
-  }, function(choice)
-    if choice == "append" or choice == "overwrite" then
-      write(lines, target, choice)
-    end
-  end)
+  local choice = vim.fn.confirm(target .. " already exists. How should it be saved?", "&Append\n&Overwrite\n&Cancel", 3)
+  if choice == 1 then
+    return write(lines, target, "append")
+  end
+  if choice == 2 then
+    return write(lines, target, "overwrite")
+  end
   return nil
 end
 
