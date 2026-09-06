@@ -11,6 +11,7 @@ M.defaults = {
     "http://127.0.0.1:9119",
   },
   composer_height = 10,
+  transcript_directories = {},
 }
 
 M.options = vim.tbl_deep_extend("force", {}, M.defaults)

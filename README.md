@@ -46,6 +46,10 @@ required.
 require("hermes").setup({
   session_store_file = vim.fn.stdpath("state") .. "/hermes.nvim/session.json",
   composer_height = 10,
+  transcript_directories = {
+    "~/obsidian_vault",
+    "~/projects/python/notes",
+  },
 })
 ```
 
@@ -58,6 +62,10 @@ The default bridge command runs the bundled bridge with Node.js and connects to
 installation directory, so it does not depend on a particular plugin manager
 or installation path. Override `bridge_cmd` only when using a different local
 endpoint, Node.js executable, or bridge wrapper.
+
+`transcript_directories` provides tab-completion candidates for transcript save
+commands. It does not restrict where transcripts can be saved; any existing
+directory can be entered as the `path` argument.
 
 ## Usage
 
@@ -106,6 +114,20 @@ Only the selected text is sent. The plugin does not implicitly attach the
 entire current buffer or codebase. Selections cannot be sent from the Compose
 buffer; use `:HermesSubmit` there so the complete draft is submitted
 deliberately.
+
+Save the complete chat buffer or the current visual selection as Markdown:
+
+```vim
+:HermesSaveTranscript ~/obsidian_vault hermes-chat
+:'<,'>HermesSaveSelection ~/projects/python/notes excerpt append
+```
+
+Both commands take `path`, `filename`, and an optional `append` or `overwrite`
+argument. A filename without an extension receives `.md`; an existing extension
+is preserved. If the target file already exists and no mode was supplied, the
+plugin asks whether to append, overwrite, or cancel. Paths configured in
+`transcript_directories` are available through command-line tab completion, but
+other existing directories are accepted when entered directly.
 
 The prompt and streamed response appear in an unlisted temporary Markdown buffer named `hermes://chat`.
 
@@ -169,6 +191,7 @@ Implemented:
 - approval and clarification prompts
 - tool event rendering
 - active-turn interruption
+- complete-transcript and visual-selection Markdown export
 
 Deferred:
 

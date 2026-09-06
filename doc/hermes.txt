@@ -32,6 +32,17 @@ Override the bridge command when necessary: >lua
       },
     })
 <
+Configure tab-completion candidates for transcript export directories: >lua
+    require("hermes").setup({
+      transcript_directories = {
+        "~/obsidian_vault",
+        "~/projects/python/notes",
+      },
+    })
+<
+These are completion candidates, not an allowlist. Any existing directory can
+be supplied directly.
+
 ==============================================================================
 3. Commands                                                  *hermes-commands*
 
@@ -52,6 +63,18 @@ Override the bridge command when necessary: >lua
 
 :HermesNew                  End the current live connection, clear its saved
                             local association, and create a new conversation.
+
+:HermesSaveTranscript {path} {filename} [append|overwrite]
+                            Save the complete `hermes://chat` buffer as a
+                            Markdown file.
+
+:'<,'>HermesSaveSelection {path} {filename} [append|overwrite]
+                            Save the current visual selection as Markdown.
+
+For both save commands, `.md` is appended when {filename} has no extension.
+When the target exists and no mode is given, hermes.nvim asks whether to
+append, overwrite, or cancel. Directories in `transcript_directories` are
+offered through tab completion; other existing directories remain valid.
 
 ==============================================================================
 4. Scope                                                        *hermes-scope*

@@ -2,6 +2,8 @@ local hermes = require("hermes")
 local application = require("hermes.application")
 local composer = require("hermes.composer")
 local selection = require("hermes.selection")
+local buffer = require("hermes.buffer")
+local transcript = require("hermes.transcript")
 
 local original
 
@@ -17,6 +19,7 @@ describe("hermes.nvim", function()
       application_get = application.get,
       composer_open = composer.open,
       selection_current = selection.current,
+      transcript_save = transcript.save,
       notify = vim.notify,
       hermes_module = package.loaded["hermes"],
     }
@@ -26,7 +29,9 @@ describe("hermes.nvim", function()
     application.get = original.application_get
     composer.open = original.composer_open
     selection.current = original.selection_current
+    transcript.save = original.transcript_save
     vim.notify = original.notify
+    buffer.reset()
     package.loaded["hermes"] = original.hermes_module
     hermes = original.hermes_module
   end)
@@ -46,6 +51,7 @@ describe("hermes.nvim", function()
     assert.is_nil(config.options.state_file)
     assert.equals("http://127.0.0.1:9119", config.options.bridge_cmd[3])
     assert.matches("/bridge/dist/bridge.js$", config.options.bridge_cmd[2])
+    assert.same({}, config.options.transcript_directories)
   end)
 
   it("merges user options with defaults", function()
@@ -86,6 +92,43 @@ describe("hermes.nvim", function()
     assert.is_nil(result)
     assert.equals("Selected text", submitted)
     assert.same({ selection = true, delimiter = true }, submitted_options)
+  end)
+
+  it("saves every line from the Hermes chat buffer", function()
+    local saved
+    local bufnr = buffer.ensure_buffer()
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "# Transcript", "", "Complete chat" })
+    transcript.save = function(lines, path, filename, mode)
+      saved = { lines = lines, path = path, filename = filename, mode = mode }
+    end
+
+    hermes.save_transcript("~/notes", "chat", "append")
+
+    assert.same({
+      lines = { "# Transcript", "", "Complete chat" },
+      path = "~/notes",
+      filename = "chat",
+      mode = "append",
+    }, saved)
+  end)
+
+  it("saves only the current visual selection", function()
+    local saved
+    selection.current = function()
+      return "Selected\ntext"
+    end
+    transcript.save = function(lines, path, filename, mode)
+      saved = { lines = lines, path = path, filename = filename, mode = mode }
+    end
+
+    hermes.save_selection("~/notes", "selection.md", "overwrite")
+
+    assert.same({
+      lines = { "Selected", "text" },
+      path = "~/notes",
+      filename = "selection.md",
+      mode = "overwrite",
+    }, saved)
   end)
 
   it("opens the composer through the public API", function()

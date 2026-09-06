@@ -2,6 +2,8 @@ local config = require("hermes.config")
 local application = require("hermes.application")
 local selection = require("hermes.selection")
 local composer = require("hermes.composer")
+local buffer = require("hermes.buffer")
+local transcript = require("hermes.transcript")
 
 local M = {}
 
@@ -34,6 +36,19 @@ function M.ask_selection()
     return false
   end
   app():submit(selection.current(), { selection = true, delimiter = true })
+end
+
+function M.save_transcript(path, filename, mode)
+  ensure_setup()
+  local bufnr = buffer.ensure_buffer()
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  return transcript.save(lines, path, filename, mode)
+end
+
+function M.save_selection(path, filename, mode)
+  ensure_setup()
+  local lines = vim.split(selection.current(), "\n", { plain = true })
+  return transcript.save(lines, path, filename, mode)
 end
 
 function M.open()
