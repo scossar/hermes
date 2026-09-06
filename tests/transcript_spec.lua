@@ -34,6 +34,22 @@ describe("transcript export", function()
     assert.same({ "# Chat", "", "Hello" }, read_lines(path))
   end)
 
+  it("notifies with the saved path after writing a file", function()
+    local notifications = {}
+    vim.notify = function(message, level)
+      table.insert(notifications, { message = message, level = level })
+    end
+
+    local path = transcript.save({ "Chat" }, directory, "conversation")
+
+    assert.same({
+      {
+        message = "Transcript saved to " .. vim.fn.fnamemodify(path, ":~"),
+        level = vim.log.levels.INFO,
+      },
+    }, notifications)
+  end)
+
   it("preserves an existing filename extension", function()
     local path = transcript.save({ "Chat" }, directory, "conversation.markdown")
 

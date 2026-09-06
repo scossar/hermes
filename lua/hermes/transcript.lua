@@ -20,6 +20,7 @@ local function write(lines, target, mode)
     notify_error("could not save " .. target .. (ok and "" or ": " .. tostring(result)))
     return false
   end
+  vim.notify("Transcript saved to " .. vim.fn.fnamemodify(target, ":~"), vim.log.levels.INFO)
   return target
 end
 
