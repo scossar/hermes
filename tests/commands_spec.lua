@@ -57,13 +57,19 @@ describe("transcript commands", function()
     assert.same({ "/tmp", "excerpt" }, calls.selection)
   end)
 
-  it("rejects an obsolete append or overwrite argument", function()
+  it("joins every argument after the path into the filename", function()
+    vim.cmd("HermesSaveTranscript /tmp This is a test")
+
+    assert.same({ "/tmp", "This is a test" }, calls.transcript)
+  end)
+
+  it("requires both a path and a filename", function()
     local notifications = {}
     vim.notify = function(message, level)
       table.insert(notifications, { message = message, level = level })
     end
 
-    vim.cmd("HermesSaveTranscript /tmp chat append")
+    vim.cmd("HermesSaveTranscript /tmp")
 
     assert.is_nil(calls.transcript)
     assert.matches("path filename$", notifications[1].message)

@@ -74,7 +74,8 @@ be supplied directly.
 For both save commands, `.md` is appended when {filename} has no extension.
 When the target exists, hermes.nvim asks whether to append, overwrite, or
 cancel. Directories in `transcript_directories` are
-offered through tab completion; other existing directories remain valid.
+offered through tab completion; other existing directories remain valid. All
+words after {path} form {filename}, so spaces do not need to be escaped.
 
 ==============================================================================
 4. Scope                                                        *hermes-scope*
